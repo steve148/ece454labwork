@@ -35,8 +35,6 @@ team_t team = {
     "r@r.com"
 };
 
-int max, min;
-
 /*************************************************************************
  * Basic Constants and Macros
  * You are not required to use these macros but may find them helpful.
@@ -215,28 +213,15 @@ void *mm_malloc(size_t size)
     size_t extendsize; /* amount to extend heap if no fit */
     char * bp;
 
-
-
     /* Ignore spurious requests */
     if (size == 0)
         return NULL;
-
 
     /* Adjust block size to include overhead and alignment reqs. */
     if (size <= DSIZE)
         asize = 2 * DSIZE;
     else
         asize = DSIZE * ((size + (DSIZE) + (DSIZE-1))/ DSIZE);
-
-	if (asize > max) {
-		max = asize;
-	}
-
-	if (asize < min && asize != 0) {
-		min = asize;
-	}
-
-	printf("%d %d\n", max, min);
 
     /* Search the free list for a fit */
     if ((bp = find_fit(asize)) != NULL) {
