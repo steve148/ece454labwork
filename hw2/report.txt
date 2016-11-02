@@ -1,0 +1,17 @@
+﻿In the algorithm we’ve decided to submit, we divide the source image into 16x16 chunks that are then individually rotated into the destination file. 
+
+
+Column ‘n’ of the source image, traversed from element 0 to element n-1, corresponds to row ‘n’ of the destination image, traversed from element n-1 to element 0, and so on for every column of the source image. Using this simple paradigm, we transfer the 16x16 blocks in 3 nested while loops.
+
+
+Algorithm.
+1 We start with the top element of the final column of the source image, and the first element of the first row of the destination image. 
+2 The inner while loop counts from 15 to 0 and the destination pointer iterates, for 16 elements, through a row of the destination image. During this iteration, we transfer the corresponding source pixel to each element. 
+3 In the middle loop, the destination pointer is moved down to inner loop to go through 16 elements of the next row, directly underneath those recently traversed in the inner loop. 
+4 This juggling between the inner and middle loops is done all the way down to the final row of the destination image, and then the outer loop moves to the next ‘column’ of 16 elements in the destination image, which is again processed row by row.
+
+
+Speedup Reasoning
+- After trying different n in 2^n as the size of the blocks to iterate through for the rotation, it was found that 16x16 blocks produced the optimal time
+- The best reasoning for this was due to the cache being 64B blocks, the 16 x 16 blocks were the best fit for the cache with the chosen algorithm
+- This was shown by running the objdump program with the 16x16 block size having much fewer cache misses than the other dimensions tested
