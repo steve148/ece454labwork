@@ -68,8 +68,13 @@ team_t team = {
 
 typedef struct {
 	int size;
-	void *heap_list; 
+	heapNode * heap_list; 
 } buddy_allocator;
+
+typedef struct {
+    void * freeBlock;
+    heapNode * next;
+} heapNode;
 
 buddy_allocator buddy[BUDDY_ALLOCATOR_LENGTH]; // initialize as global variables for now
 
@@ -77,29 +82,34 @@ void* heap_listp;
 int count = 0;
 
 /**********************************************************
- * buddy allocator specific functions
+ * buddy allocator and queue specific functions
  * split, coalesce, etc.
  *
  **********************************************************/
-void split(int desiredIndex)
+void split(int startIndex)
 {
-    // start splitting from next level onwards
-    desiredIndex++;
-    if (desiredIndex == BUDDY_ALLOCATOR_LENGTH)
+    // start with one index higher than the one you want resources for
+    if (startIndex == BUDDY_ALLOCATOR_LENGTH)
     {
         // could not find anything to split
         // add chunk to buddy[BUDDY_ALLOCATOR_LENGTH-1]
         return;
     }
-    if (buddy[desiredIndex].heap_list == NULL)
+    buddy_allocator * currBuddy = buddy[startIndex];
+    if (currBuddy->heap_list == NULL)
     {
         // no blocks found in current level
         // allocate blocks at level desiredIndex + 1
-        split(desiredIndex);
+        split(startIndex + 1);
     }
     // dequeue from heap
+    void * freeBlock = deq(currBuddy->heap_list); 
     // split block into two halves
+    startIndex--;
+    void * freeBlock2 = freeBlock + (1<<startIndex); 
     // place halves into lower level heap
+    enq(freeBlock, startIndex);
+    enq(freeBlock2, startIndex);
     return;
 }
 
@@ -109,6 +119,29 @@ void coalesce(int startIndex)
     // as it goes. scans the heaplist of each size.
 }
 
+void * deq (heapNode * heapHead)
+{
+    heapNode * tmp = heapHead;
+    void * free_block = tmp->freeBlock;
+    heapHead = heapHead->next;
+    mm_free(tmp); // TODO: add coalescing to mm_free
+    return free_block;
+}
+
+void enq (void * free_block, int destIndex)
+{
+    // TODO: finish mm_malloc so this actually works
+    heapNode * newNode = mm_malloc(sizeof(heapNode)); 
+    newNode->next = NULL;
+    newNode->freeBlock = free_block;
+    heapNode * tmpNode = buddy[destIndex].heap_list;
+    while (tmpNode->next != NULL)
+    {
+        tmpNode = tmpNode->next;
+    }
+    tmpNode->next = newNode;
+    return;
+}
 
 /**********************************************************
  * mm_init
