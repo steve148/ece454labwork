@@ -64,25 +64,36 @@ team_t team = {
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
-void* heap_listp = NULL;
+typedef struct {
+	int size;
+	void *heap_list; 
+} buddy_allocator;
+
+
+void* heap_listp;
+int count = 0;
 
 /**********************************************************
  * mm_init
  * Initialize the heap, including "allocation" of the
  * prologue and epilogue
  **********************************************************/
- int mm_init(void)
- {
-   if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
-         return -1;
-     PUT(heap_listp, 0);                         // alignment padding
-     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
-     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
-     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
-     heap_listp += DSIZE;
+int mm_init(void)
+{
+    if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
+    	return -1;
+    PUT(heap_listp, 0);                         // alignment padding
+    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
+    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
+    PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
+    heap_listp += DSIZE;
 
-     return 0;
- }
+    // init backbone / buddy allocators
+
+    return 0;
+}
+
+// Don't think coalesce exists in segregated method
 
 /**********************************************************
  * coalesce
@@ -125,6 +136,8 @@ void *coalesce(void *bp)
     }
 }
 
+
+
 /**********************************************************
  * extend_heap
  * Extend the heap by "words" words, maintaining alignment
@@ -133,6 +146,10 @@ void *coalesce(void *bp)
  **********************************************************/
 void *extend_heap(size_t words)
 {
+    // extend heap should increase create free blocks
+    // for the nearest ceiling power of 2 block size
+    // for the buddy allocator.
+
     char *bp;
     size_t size;
 
@@ -147,6 +164,9 @@ void *extend_heap(size_t words)
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));        // new epilogue header
 
     /* Coalesce if the previous block was free */
+
+    // may not need depending on heap_list implementation for buddy allocator
+
     return coalesce(bp);
 }
 
@@ -160,6 +180,21 @@ void *extend_heap(size_t words)
 void * find_fit(size_t asize)
 {
     void *bp;
+
+    // go through buddy allocators and find best fit
+    // might look like the following
+
+    //int i, j;
+    //for (i = 0; i != NULL; i++) {
+    //    if (buddy_allocators[i].size <= asize) {
+    //        for (bp = buddy_allocators[i].heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
+    //            if (!GET_ALLOC(HDRP(bp))) {
+    //		      return bp;
+    //            }
+    //	      } 
+    //    }
+
+
     for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
     {
         if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
@@ -192,10 +227,11 @@ void mm_free(void *bp)
     if(bp == NULL){
       return;
     }
+
     size_t size = GET_SIZE(HDRP(bp));
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
-    coalesce(bp);
+    coalesce(bp); 			// could remove depending on if needed for segregated
 }
 
 
@@ -233,7 +269,7 @@ void *mm_malloc(size_t size)
     extendsize = MAX(asize, CHUNKSIZE);
     if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
         return NULL;
-    place(bp, asize);
+    place(bp, asize); // cant assume to place at beginning need to run find fit again
     return bp;
 
 }
