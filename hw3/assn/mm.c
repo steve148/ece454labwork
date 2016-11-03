@@ -64,14 +64,51 @@ team_t team = {
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
+#define BUDDY_ALLOCATOR_LENGTH  21
+
 typedef struct {
 	int size;
 	void *heap_list; 
 } buddy_allocator;
 
+buddy_allocator buddy[BUDDY_ALLOCATOR_LENGTH]; // initialize as global variables for now
 
 void* heap_listp;
 int count = 0;
+
+/**********************************************************
+ * buddy allocator specific functions
+ * split, coalesce, etc.
+ *
+ **********************************************************/
+void split(int desiredIndex)
+{
+    // start splitting from next level onwards
+    desiredIndex++;
+    if (desiredIndex == BUDDY_ALLOCATOR_LENGTH)
+    {
+        // could not find anything to split
+        // add chunk to buddy[BUDDY_ALLOCATOR_LENGTH-1]
+        return;
+    }
+    if (buddy[desiredIndex].heap_list == NULL)
+    {
+        // no blocks found in current level
+        // allocate blocks at level desiredIndex + 1
+        split(desiredIndex);
+    }
+    // dequeue from heap
+    // split block into two halves
+    // place halves into lower level heap
+    return;
+}
+
+void coalesce(int startIndex)
+{
+    // recursive function that moves up, coalescing adjacent buddies
+    // as it goes. scans the heaplist of each size.
+}
+
 
 /**********************************************************
  * mm_init
@@ -80,6 +117,8 @@ int count = 0;
  **********************************************************/
 int mm_init(void)
 {
+    int i;
+    
     if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
     	return -1;
     PUT(heap_listp, 0);                         // alignment padding
@@ -89,6 +128,11 @@ int mm_init(void)
     heap_listp += DSIZE;
 
     // init backbone / buddy allocators
+    for (i = 0; i < BUDDY_ALLOCATOR_LENGTH; i++) 
+    {
+        buddy[i].size = DSIZE << i;
+        buddy[i].heap_list = NULL;
+    }
 
     return 0;
 }
