@@ -39,9 +39,12 @@ team_t team = {
  * Basic Constants and Macros
  * You are not required to use these macros but may find them helpful.
 *************************************************************************/
-#define WSIZE       sizeof(void *)            /* word size (bytes) */
-#define DSIZE       (2 * WSIZE)            /* doubleword size (bytes) */
-#define CHUNKSIZE   (1<<7)      /* initial heap size (bytes) */
+#define WSIZE       		 sizeof(void *)                  /* word size (bytes) */
+#define DSIZE       		 (2 * WSIZE)                     /* doubleword size (bytes) */
+#define POOL_ORDER  		 20
+#define MIN_ORDER   		 1
+#define NUM_BUDDY_ALLOCATORS (POOL_ORDER - MIN_ORDER)
+#define CHUNKSIZE            (DSIZE << (NUM_BUDDY_ALLOCATORS+1)) /* initial heap size (bytes) */
 
 #define MAX(x,y) ((x) > (y)?(x) :(y))
 #define MIN
@@ -74,7 +77,7 @@ void* heap_listp = NULL;
  **********************************************************/
 
 typedef struct Blocks {
-    Block *next;
+    struct Blocks *next;
     void *bp;
 } Block;
  
@@ -84,9 +87,6 @@ typedef struct BuddyAllocators {
 } BuddyAllocator;    
 
 unsigned long base_addr;
-#define POOL_ORDER  21
-#define MIN_ORDER   1
-#define NUM_BUDDY_ALLOCATORS (POOL_ORDER - MIN_ORDER)
 
 BuddyAllocator avail[NUM_BUDDY_ALLOCATORS];
 
@@ -107,38 +107,11 @@ size_t getOrder(int argInt)
  *
  **********************************************************/
 
-void removeFromAvail(int blockOrder, void *bp)
-{
-    Block *tmpBlock = avail[blockOrder]->head;
-    if (bp == tmpBlock->bp)
-    {
-        avail[blockOrder]->head = tmpBlock->next;
-        // free tmpBlock
-        return;
-    }
-    while (bp != (tmpBlock->next)->bp)
-    {
-        tmpBlock = tmpBlock->next;
-    }
-    tmpBlock->next = block->next;
-    // free tmpBlock
-}
-
-Block *appendToAvail(int blockOrder, void *bp)
-{
-    Block *newBlock = place();
-    Block *tmpBlock = avail[blockOrder]->head;
-    newBlock->bp = bp;
-    newBlock->next = tmpBlock;
-    *tmpBlock = newBlock;
-    return newBlock;
-}
-
 Block *findBlock(void *bp)
 {
     size_t blockOrder = getOrder(GET_SIZE(HDRP(bp)));
     Block *outBlock = NULL;
-    Block *tmpBlock = avail[blockOrder]->head;
+    Block *tmpBlock = avail[blockOrder].head;
     while(tmpBlock != NULL)
     {
         if (tmpBlock->bp == bp)
@@ -150,25 +123,86 @@ Block *findBlock(void *bp)
     }
     return outBlock;
 }
+
+/**********************************************************
+ * place
+ * Mark the block as allocated
+ **********************************************************/
+void place(void* bp, size_t asize)
+{
+	/* Get the current block size */
+	size_t bsize = GET_SIZE(HDRP(bp));
+
+	PUT(HDRP(bp), PACK(bsize, 1));
+	PUT(FTRP(bp), PACK(bsize, 1));	
+}
+
+void removeFromAvail(int blockOrder, void *bp)
+{
+    Block *tmpBlock = avail[blockOrder].head;
+    if (bp == tmpBlock->bp)
+    {
+        avail[blockOrder].head = tmpBlock->next;
+        // free tmpBlock
+        return;
+    }
+    
+	while (bp != (tmpBlock->next)->bp)
+    {
+        tmpBlock = tmpBlock->next;
+    }
+
+
+    tmpBlock->next = (findBlock(bp))->next;
+    // free tmpBlock
+}
+
+Block *appendToAvail(int blockOrder, void *bp)
+{
+    static Block newBlock;
+    Block *tmpBlock = avail[blockOrder].head;
+    
+	newBlock.bp = bp;
+    newBlock.next = tmpBlock;
+    avail[blockOrder].head = &newBlock;
+    
+	return &newBlock;
+}
  
 Block * splitToSize(Block *block, size_t currOrder, size_t desiredOrder)
 {
     void *buddyBlock;
-    // block marked as allocated
+    
+	printf("c\n"); 
+	// block marked as allocated
     // store desired block size
-    PUT(HDRP(block->bp), PACK((int) DWORD<<desiredOrder,1));
-    PUT(FTRP(block->bp), PACK((int) DWORD<<desiredOrder,1));
+
+	printf("%d\n", block->bp);
+
+    PUT(HDRP(block->bp), PACK((size_t) DSIZE<<desiredOrder, 1));
+
+	printf("triplefuck\n");
+    PUT(FTRP(block->bp), PACK((size_t) DSIZE<<desiredOrder, 1));
+
+	printf("c1\n");
+	
     // remove block from avail[currOrder]
     removeFromAvail(currOrder, block);
+
+	printf("d\n");
+
     while (currOrder > desiredOrder)
     {
+		printf("e\n");
         --currOrder;
-        buddyBlock = block->bp + (DWORD << currOrder);
-        // buddyBlock marked as free
+        buddyBlock = block->bp + (DSIZE << currOrder);
+        
+		// buddyBlock marked as free
         // store buddyBlock size
-        PUT(HDRP(buddyBlock)), PACK((int) DWORD<<currOrder,0));
-        PUT(FTRP(buddyBlock)), PACK((int) DWORD<<currOrder,0));
-        // append buddy block to avail[currOrder]
+        PUT(HDRP(buddyBlock), PACK((int) DSIZE<<currOrder, 0));
+        PUT(FTRP(buddyBlock), PACK((int) DSIZE<<currOrder, 0));
+        
+		// append buddy block to avail[currOrder]
         appendToAvail(currOrder, buddyBlock);
     }
     return block;
@@ -184,7 +218,7 @@ void * find_buddy(Block *block, unsigned long order)
     _block = (unsigned long) block - base_addr;
     _buddy = _block ^ (DSIZE << order);
     
-	return (void *)(_buddy + mp->base_addr);
+	return (void *)(_buddy + base_addr);
 }
 
 void mergeBuddies(Block *block, size_t order)
@@ -213,32 +247,6 @@ void mergeBuddies(Block *block, size_t order)
     PUT(HDRP(block->bp), PACK(DSIZE<<order, 0));
     appendToAvail(order, block->bp);
 }
-
-/**********************************************************
- * mm_init
- * Initialize the heap, including "allocation" of the
- * prologue and epilogue
- **********************************************************/
- int mm_init(void)
- {
-   if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
-         return -1;
-     PUT(heap_listp, 0);                         // alignment padding
-     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
-     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
-     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
-     heap_listp += DSIZE;
-     
-     int i;
-     for (i = MIN_ORDER; i < POOL_ORDER; i++)
-     {
-         avail[i].head = NULL;
-     }
-     
-     base_addr = (unsigned long) heap_listp;
-
-     return 0;
- }
 
 /**********************************************************
  * coalesce
@@ -306,6 +314,40 @@ void *extend_heap(size_t words)
     return coalesce(bp);
 }
 
+/**********************************************************
+ * mm_init
+ * Initialize the heap, including "allocation" of the
+ * prologue and epilogue
+ **********************************************************/
+int mm_init(void) {
+	void *_bp;
+
+	if ((heap_listp = mem_sbrk(4 * 	WSIZE)) == (void *)-1)
+         return -1;
+
+	printf("here");
+
+    PUT(heap_listp, 0);                         // alignment padding
+    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
+    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
+    PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
+    heap_listp += DSIZE;
+
+	printf("here2");
+
+    int i;
+    for (i = MIN_ORDER; i < POOL_ORDER; i++) {
+    	avail[i].head = NULL;
+    }
+
+	_bp = extend_heap(CHUNKSIZE);
+	appendToAvail(NUM_BUDDY_ALLOCATORS - 1, _bp);	
+     
+    base_addr = (unsigned long) heap_listp;
+
+    return 0;
+ }
+
 
 /**********************************************************
  * find_fit
@@ -327,25 +369,12 @@ void * find_fit(size_t asize)
 }
 
 /**********************************************************
- * place
- * Mark the block as allocated
- **********************************************************/
-void place(void* bp, size_t asize)
-{
-	/* Get the current block size */
-	size_t bsize = GET_SIZE(HDRP(bp));
-
-	PUT(HDRP(bp), PACK(bsize, 1));
-	PUT(FTRP(bp), PACK(bsize, 1));	
-}
-
-/**********************************************************
  * dequeue
  * Remove the marked block from the free list
  **********************************************************/
 void dequeue(int block_level) {
-	Block *block_to_remove = avail[block_level]->head;
-	avail[block_level]->head = block_to_remove->next;
+	Block *block_to_remove = avail[block_level].head;
+	avail[block_level].head = block_to_remove->next;
 	return;
 }
 
@@ -354,8 +383,8 @@ void dequeue(int block_level) {
  * Find the block level for the level that fits the asize 
  **********************************************************/
 size_t find_block_level(size_t asize) {
-	int cntr = 0;
-	while (asize > (size_t)(DSIZE << cntr))) {
+	int cntr = 1;
+	while (asize > (size_t)(DSIZE << cntr)) {
 		cntr = cntr << 1;
 	}
 	return (size_t)cntr;
@@ -399,7 +428,7 @@ void *mm_malloc(size_t size)
 	size_t block_level; // current block size
     Block *block;
 	void *_bp;
-	int i, j;
+	int i;
 
     /* Ignore spurious requests */
     if (size == 0)
@@ -411,15 +440,24 @@ void *mm_malloc(size_t size)
     else
         asize = DSIZE * ((size + (DSIZE) + (DSIZE-1))/ DSIZE);
 
-	block_level = find_block_level(asize);// find block level
+	int power = 2;
+	while (asize >= power)
+		power <<= 1;
+	asize = (size_t)power;
 
+	printf("asize %d\n", (int)asize);
+
+
+	block_level = find_block_level(asize);// find block level
+	printf("block_level %d\n", block_level);
 	// if block level n has free block
 	// get free block, dequeue, place, return
-	if (avail[block_level]->head != NULL) {
+	if (avail[block_level].head != NULL) {
 		block = avail[block_level].head;
-		_bp = block.bp;
+		_bp = block->bp;
 		dequeue(block_level);
 		place(_bp, asize);
+		printf("asize after %d\n", (int)GET_SIZE(HDRP(_bp)));
 		return _bp;
 	}
 
@@ -427,14 +465,19 @@ void *mm_malloc(size_t size)
 	for (i = block_level; i < NUM_BUDDY_ALLOCATORS; i++) {
 
 		// if block level m has available block, split and use
-		if (avail[i]->head != NULL) {
+		printf("head at %d exists %d\n", i, avail[i].head != NULL);
+		if (avail[i].head != NULL) {
+			printf("a\n");
 			block = splitToSize(avail[block_level].head, i, block_level);
-			_bp = block.bp;
+            printf("b\n");
+			_bp = block->bp;
 			dequeue(block_level);
 			place(_bp, asize);
 			return _bp;
 		}
 	}
+
+	printf("fuck\n");
 	
 	// if no blocks above are free, need to add new level
 	// to block allocator
@@ -451,7 +494,7 @@ void *mm_malloc(size_t size)
 		dequeue(block);
         return _bp;
     }
-    /* No fit found. Get more memory and place the block 
+    // No fit found. Get more memory and place the block 
     extendsize = MAX(asize, CHUNKSIZE);
     if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
         return NULL;
