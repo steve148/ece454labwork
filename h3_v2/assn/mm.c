@@ -78,27 +78,30 @@ void* heap_listp = NULL;
 
 typedef struct Blocks {
     struct Blocks *next;
-    void *bp;
-} Block;
- 
-typedef struct BuddyAllocators {
-    // might need next, prev for later
-    Block *head;
-} BuddyAllocator;    
+    struct Blocks *prev;
+} Block;   
 
 unsigned long base_addr;
 
-BuddyAllocator avail[NUM_BUDDY_ALLOCATORS];
+/* Book-keeping for segregated list implementation */
+#define NUM_FREE_LISTS 8	//8 free lists
+#define MIN_BLOCK_SIZE 32	//32B is the minimum block size we picked for our smallest free list (<=32)
+#define MIN_BLOCK_PWR 5		//2^5 - Part of the sort mechanism in our hash function, lg(MIN_BLOCK_SIZE)
 
-size_t getOrder(int argInt)
+Block *avail[NUM_FREE_LISTS];
+
+int getAvailIndex(size_t size)
 {
-    size_t orderOfArg = 0;
-    while (argInt > DSIZE) 
+    size_t counter = 0;
+    assert(size >= 2*DSIZE);
+    size--;
+    while (size != 0)
     {
-        argInt >>= 1;
-        orderOfArg++;
+        size = size >> 1;	//use bit shifts to determine how long we take to get to MSB
+        counter++;			//record MSb length
     }
-    return orderOfArg;
+    counter = MAX(counter - MIN_BLOCK_PWR, 0);
+    return counter >= NUM_FREE_LISTS ? NUM_FREE_LISTS-1 : counter;
 }
 
 /**********************************************************
@@ -109,7 +112,7 @@ size_t getOrder(int argInt)
 
 Block *findBlock(void *bp)
 {
-    size_t blockOrder = getOrder(GET_SIZE(HDRP(bp)));
+    size_t blockOrder = getAvailIndex(GET_SIZE(HDRP(bp)));
     Block *outBlock = NULL;
     Block *tmpBlock = avail[blockOrder].head;
     while(tmpBlock != NULL)
@@ -137,36 +140,57 @@ void place(void* bp, size_t asize)
 	PUT(FTRP(bp), PACK(bsize, 1));	
 }
 
-void removeFromAvail(int blockOrder, void *bp)
+void removeFromAvail(Block *block)
 {
-    Block *tmpBlock = avail[blockOrder].head;
-    if (bp == tmpBlock->bp)
+    size_t size = GET_SIZE(HDRP(block));
+    int availIndex = getAvailIndex(size);
+
+    if (block == NULL)
     {
-        avail[blockOrder].head = tmpBlock->next;
-        // free tmpBlock
         return;
     }
-    
-	while (bp != (tmpBlock->next)->bp)
+    //double linked list free block removal
+    if (block != block->next)
     {
-        tmpBlock = tmpBlock->next;
+        block->prev->next = block->next; // Make previous free block point to next free block
+        block->next->prev = block->prev; // Make next free block point to previous free block
+        if (avail[availIndex] == block)
+        {
+            // If we are removing the head pointer, we must set a new head pointer
+            avail[availIndex] = block->next;
+        }
     }
-
-
-    tmpBlock->next = (findBlock(bp))->next;
-    // free tmpBlock
+    else
+    {
+        avail[availIndex] = NULL;
+    }
 }
 
-Block *appendToAvail(int blockOrder, void *bp)
-{
-    static Block newBlock;
-    Block *tmpBlock = avail[blockOrder].head;
-    
-	newBlock.bp = bp;
-    newBlock.next = tmpBlock;
-    avail[blockOrder].head = &newBlock;
-    
-	return &newBlock;
+void appendToAvail(Block *temp)
+{   
+    size_t size = GET_SIZE(HDRP(temp));
+    int availIndex = getAvailIndex(size);
+
+    if (temp == NULL)
+        return;
+
+    if (avail[availIndex] == NULL)
+    {
+        // The free list is empty, this will be the first free block. Set head to point to it.
+        avail[availIndex] = temp;
+        avail[availIndex]->next = temp;
+        avail[availIndex]->prev = temp;
+    }
+
+    else
+    {
+        // Insert the newly freed block into the start of the free list
+        // It will become the new head
+        temp->next = avail[availIndex];
+        temp->prev = avail[availIndex]->prev;
+        temp->prev->next = temp;
+        temp->next->prev = temp;
+    }
 }
  
 Block * splitToSize(Block *block, size_t currOrder, size_t desiredOrder)
@@ -231,7 +255,7 @@ void mergeBuddies(Block *block, size_t order)
         {
             break;
         }
-        if (order != getOrder(GET_SIZE(HDRP(buddy_bp))))
+        if (order != getAvailIndex(GET_SIZE(HDRP(buddy_bp))))
         {
             break;
         }
@@ -267,6 +291,9 @@ void *coalesce(void *bp)
     }
 
     else if (prev_alloc && !next_alloc) { /* Case 2 */
+        Block* temp = (Block*)NEXT_BLKP(bp);
+        removeFromAvail(temp);
+        
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
@@ -274,6 +301,9 @@ void *coalesce(void *bp)
     }
 
     else if (!prev_alloc && next_alloc) { /* Case 3 */
+        Block* temp = (Block*)PREV_BLKP(bp);
+        removeFromAvail(temp);
+    
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, 0));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
@@ -281,6 +311,11 @@ void *coalesce(void *bp)
     }
 
     else {            /* Case 4 */
+        Block* temp = (Block*)PREV_BLKP(bp);
+        removeFromAvail(temp);
+        Block* temp = (Block*)NEXT_BLKP(bp);
+        removeFromAvail(temp);
+        
         size += GET_SIZE(HDRP(PREV_BLKP(bp)))  +
             GET_SIZE(FTRP(NEXT_BLKP(bp)))  ;
         PUT(HDRP(PREV_BLKP(bp)), PACK(size,0));
@@ -311,7 +346,7 @@ void *extend_heap(size_t words)
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));        // new epilogue header
 
     /* Coalesce if the previous block was free */
-    return coalesce(bp);
+    return bp;
 }
 
 /**********************************************************
@@ -337,11 +372,8 @@ int mm_init(void) {
 
     int i;
     for (i = MIN_ORDER; i < POOL_ORDER; i++) {
-    	avail[i].head = NULL;
+    	avail[i] = NULL;
     }
-
-	_bp = extend_heap(CHUNKSIZE);
-	appendToAvail(NUM_BUDDY_ALLOCATORS - 1, _bp);	
      
     base_addr = (unsigned long) heap_listp;
 
@@ -358,13 +390,18 @@ int mm_init(void) {
 void * find_fit(size_t asize)
 {
     void *bp;
-    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
+    
+    int availIndex = getAvailIndex(asize);
+    int i;
+    for (i = availIndex; i < NUM_FREE_LISTS; i++)
     {
-        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
+        if (avail[i] != NULL)
         {
-            return bp;
+            
         }
     }
+    
+    // could not find a fit
     return NULL;
 }
 
@@ -404,7 +441,7 @@ void mm_free(void *bp)
       return;
     }
 	
-	block_level = getOrder(GET_SIZE(HDRP(bp)));
+	block_level = getAvailIndex(GET_SIZE(HDRP(bp)));
 	block = appendToAvail(block_level, bp);
     
 	PUT(HDRP(bp), PACK(size,0));
