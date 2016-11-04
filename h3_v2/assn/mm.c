@@ -74,6 +74,8 @@ void* heap_listp = NULL;
 
 typedef struct Blocks {
     Block *next;
+    void *bp;
+    // check for size using the header
 } Block;
  
 typedef struct BuddyAllocators {
@@ -83,9 +85,20 @@ typedef struct BuddyAllocators {
 
 unsigned long base_addr;
 #define POOL_ORDER  21;
-#define MIN_ORDER   2;
+#define MIN_ORDER   1;
 
 BuddyAllocator avail[POOL_ORDER-MIN_ORDER];
+
+size_t getOrder(int argInt)
+{
+    size_t orderOfArg = 0;
+    while (argInt > DSIZE) 
+    {
+        argInt >>= 1;
+        orderOfArg++;
+    }
+    return orderOfArg;
+}
 
 /**********************************************************
  * functions for buddy allocator
@@ -93,8 +106,111 @@ BuddyAllocator avail[POOL_ORDER-MIN_ORDER];
  *
  **********************************************************/
 
+void removeFromAvail(int blockOrder, void *bp)
+{
+    Block *tmpBlock = avail[blockOrder]->head;
+    if (bp == tmpBlock->bp)
+    {
+        avail[blockOrder]->head = tmpBlock->next;
+        // free tmpBlock
+        return;
+    }
+    while (bp != (tmpBlock->next)->bp)
+    {
+        tmpBlock = tmpBlock->next;
+    }
+    tmpBlock->next = block->next;
+    // free tmpBlock
+}
+
+Block *appendToAvail(int blockOrder, void *bp)
+{
+    Block *newBlock = place();
+    Block *tmpBlock = avail[blockOrder]->head;
+    newBlock->bp = bp;
+    newBlock->next = tmpBlock;
+    *tmpBlock = newBlock;
+    return newBlock;
+}
+
+Block *findBlock(void *bp)
+{
+    size_t blockOrder = getOrder(GET_SIZE(HDRP(bp)));
+    Block *outBlock = NULL;
+    Block *tmpBlock = avail[blockOrder]->head;
+    while(tmpBlock != NULL)
+    {
+        if (tmpBlock->bp == bp)
+        {
+            outBlock = tmpBlock;
+            break;
+        }
+        tmpBlock = tmpBlock->next;
+    }
+    return outBlock;
+}
+ 
+Block * splitToSize(Block *block, size_t currOrder, size_t desiredOrder)
+{
+    void *buddyBlock;
+    // block marked as allocated
+    // store desired block size
+    PUT(HDRP(block->bp), PACK((int) DWORD<<desiredOrder,1));
+    PUT(FTRP(block->bp), PACK((int) DWORD<<desiredOrder,1));
+    // remove block from avail[currOrder]
+    removeFromAvail(currOrder, block);
+    while (currOrder > desiredOrder)
+    {
+        --currOrder;
+        buddyBlock = block->bp + (DWORD << currOrder);
+        // buddyBlock marked as free
+        // store buddyBlock size
+        PUT(HDRP(buddyBlock)), PACK((int) DWORD<<currOrder,0));
+        PUT(FTRP(buddyBlock)), PACK((int) DWORD<<currOrder,0));
+        // append buddy block to avail[currOrder]
+        appendToAvail(currOrder, buddyBlock);
+    }
+    return block;
+}
+ 
 void * find_buddy(Block *block, unsigned long order)
 {
+    unsigned long _block;
+    unsigned long _buddy;
+    
+    assert((unsigned long) block >= base_addr);
+    
+    _block = (unsigned long) block - base_addr;
+    _buddy = _block ^ (DSIZE << order);
+    
+	return (void *)(_buddy + mp->base_addr);
+}
+
+void mergeBuddies(Block *block, size_t order)
+{
+    while (order < POOL_ORDER)
+    {
+        Block *buddy = find_buddy(block, order);
+        void *buddy_bp = buddy->bp;
+        if (GET_ALLOC(HDRP(buddy_bp)))
+        {
+            break;
+        }
+        if (order != getOrder(GET_SIZE(HDRP(buddy_bp))))
+        {
+            break;
+        }
+        // can merge
+        removeFromAvail(order, buddy_bp);
+        if (buddy < block) block = buddy;
+        ++order;
+        PUT(FTRP(block->bp), PACK(DSIZE<<order, 0));
+        PUT(HDRP(block->bp), PACK(DSIZE<<order, 0));
+    }
+    
+    PUT(FTRP(block->bp), PACK(DSIZE<<order, 0));
+    PUT(HDRP(block->bp), PACK(DSIZE<<order, 0));
+    appendToAvail(order, block->bp);
 }
 
 /**********************************************************
