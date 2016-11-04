@@ -397,7 +397,52 @@ void * find_fit(size_t asize)
     {
         if (avail[i] != NULL)
         {
-            
+            Block* temp = avail[i];
+
+            do
+            {
+                int size = GET_SIZE(HDRP(temp));
+                if (size >= asize && size < (asize + 2*DSIZE))
+                {
+                    // We found a block that can fit, but cannot be split into an excess free block
+                    // This is easy to resolve, simply remove it from the free list and
+                    // return it to the malloc request.
+                    removeFromAvail(temp);
+                    return (void*)temp;
+                }
+                else if (size >= (asize + 2*DSIZE))
+                {
+                    // The block found has excess size and we can split the excess
+                    // into a free block
+                    // Example: Requested size = 4
+                    //          Found free block size = 10
+                    // [H1][ ][ ][ ][ ][ ][ ][ ][ ][F1]
+                    // newSize = 6
+                    removeFromAvail(temp);
+                    int newSize = size - asize;
+
+                    // Point to the ending portion of the free block, so that
+                    // we can assign this portion to the user
+                    void* userPtr = (void*)temp + newSize;
+
+                    // Set the header/footer of the user required block with their requested size
+                    // Example (cont): [H1][ ][ ][ ][ ][ ][H2][ ][ ][F2]
+                    PUT(HDRP(userPtr), PACK(asize,0));
+                    PUT(FTRP(userPtr), PACK(asize,0));
+
+                    // Adjust the size of the free block
+                    // Example (cont): [H1][ ][ ][ ][ ][F1][H2][ ][ ][F2]
+                    PUT(HDRP(temp), PACK(newSize,0));
+                    PUT(FTRP(temp), PACK(newSize,0));
+
+                    // Return the excess part to the corresponding free list
+                    addToAvail(temp);
+                    return userPtr;
+                }
+                // Move onto the next pointer
+                temp = temp->next;
+            }
+            while (temp != avail[availIndex]); // Continue until we are back where we started
         }
     }
     
