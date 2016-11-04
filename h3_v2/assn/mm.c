@@ -41,10 +41,7 @@ team_t team = {
 *************************************************************************/
 #define WSIZE       		 sizeof(void *)                  /* word size (bytes) */
 #define DSIZE       		 (2 * WSIZE)                     /* doubleword size (bytes) */
-#define POOL_ORDER  		 20
-#define MIN_ORDER   		 1
-#define NUM_BUDDY_ALLOCATORS (POOL_ORDER - MIN_ORDER)
-#define CHUNKSIZE            (DSIZE << (NUM_BUDDY_ALLOCATORS+1)) /* initial heap size (bytes) */
+#define CHUNKSIZE            (1<<7) /* initial heap size (bytes) */
 
 #define MAX(x,y) ((x) > (y)?(x) :(y))
 #define MIN
@@ -81,10 +78,9 @@ typedef struct Blocks {
     struct Blocks *prev;
 } Block;
 
-/* Book-keeping for segregated list implementation */
-#define NUM_FREE_LISTS 8	//8 free lists
-#define MIN_BLOCK_SIZE 32	//32B is the minimum block size we picked for our smallest free list (<=32)
-#define MIN_BLOCK_PWR 5		//2^5 - Part of the sort mechanism in our hash function, lg(MIN_BLOCK_SIZE)
+#define NUM_FREE_LISTS 8
+#define MIN_BLOCK_SIZE 32
+#define MIN_BLOCK_PWR 5
 
 Block *avail[NUM_FREE_LISTS];
 
@@ -95,8 +91,8 @@ int getAvailIndex(size_t size)
     size--;
     while (size != 0)
     {
-        size = size >> 1;	//use bit shifts to determine how long we take to get to MSB
-        counter++;			//record MSb length
+        size = size >> 1;
+        counter++;
     }
     counter = MAX(counter - MIN_BLOCK_PWR, 0);
     return counter >= NUM_FREE_LISTS ? NUM_FREE_LISTS-1 : counter;
@@ -108,7 +104,6 @@ int getAvailIndex(size_t size)
  **********************************************************/
 void place(void* bp, size_t asize)
 {
-	/* Get the current block size */
 	size_t bsize = GET_SIZE(HDRP(bp));
 
 	PUT(HDRP(bp), PACK(bsize, 1));
@@ -124,14 +119,13 @@ void removeFromAvail(Block *block)
     {
         return;
     }
-    //double linked list free block removal
+    
     if (block != block->next)
     {
-        block->prev->next = block->next; // Make previous free block point to next free block
-        block->next->prev = block->prev; // Make next free block point to previous free block
+        block->prev->next = block->next;
+        block->next->prev = block->prev;
         if (avail[availIndex] == block)
         {
-            // If we are removing the head pointer, we must set a new head pointer
             avail[availIndex] = block->next;
         }
     }
@@ -151,7 +145,6 @@ void appendToAvail(Block *temp)
 
     if (avail[availIndex] == NULL)
     {
-        // The free list is empty, this will be the first free block. Set head to point to it.
         avail[availIndex] = temp;
         avail[availIndex]->next = temp;
         avail[availIndex]->prev = temp;
@@ -159,8 +152,6 @@ void appendToAvail(Block *temp)
 
     else
     {
-        // Insert the newly freed block into the start of the free list
-        // It will become the new head
         temp->next = avail[availIndex];
         temp->prev = avail[availIndex]->prev;
         temp->prev->next = temp;
@@ -291,49 +282,31 @@ void * find_fit(size_t asize)
                 int size = GET_SIZE(HDRP(temp));
                 if (size >= asize && size < (asize + 2*DSIZE))
                 {
-                    // We found a block that can fit, but cannot be split into an excess free block
-                    // This is easy to resolve, simply remove it from the free list and
-                    // return it to the malloc request.
                     removeFromAvail(temp);
                     return (void*)temp;
                 }
                 else if (size >= (asize + 2*DSIZE))
                 {
-                    // The block found has excess size and we can split the excess
-                    // into a free block
-                    // Example: Requested size = 4
-                    //          Found free block size = 10
-                    // [H1][ ][ ][ ][ ][ ][ ][ ][ ][F1]
-                    // newSize = 6
                     removeFromAvail(temp);
                     int newSize = size - asize;
 
-                    // Point to the ending portion of the free block, so that
-                    // we can assign this portion to the user
                     void* userPtr = (void*)temp + newSize;
 
-                    // Set the header/footer of the user required block with their requested size
-                    // Example (cont): [H1][ ][ ][ ][ ][ ][H2][ ][ ][F2]
                     PUT(HDRP(userPtr), PACK(asize,0));
                     PUT(FTRP(userPtr), PACK(asize,0));
 
-                    // Adjust the size of the free block
-                    // Example (cont): [H1][ ][ ][ ][ ][F1][H2][ ][ ][F2]
                     PUT(HDRP(temp), PACK(newSize,0));
                     PUT(FTRP(temp), PACK(newSize,0));
 
-                    // Return the excess part to the corresponding free list
                     appendToAvail(temp);
                     return userPtr;
                 }
-                // Move onto the next pointer
                 temp = temp->next;
             }
-            while (temp != avail[availIndex]); // Continue until we are back where we started
+            while (temp != avail[availIndex]);
         }
     }
     
-    // could not find a fit
     return NULL;
 }
 
@@ -367,11 +340,10 @@ void mm_free(void *bp)
  **********************************************************/
 void *mm_malloc(size_t size)
 {
-    size_t asize; /* adjusted block size */
-    size_t extendsize; /* amount to extend heap if no fit */
+    size_t asize;
+    size_t extendsize;
 	char *bp;
 
-    /* Ignore spurious requests */
     if (size == 0)
         return NULL;
 
@@ -385,7 +357,6 @@ void *mm_malloc(size_t size)
         size++;
     }
 
-    /* Adjust block size to include overhead and alignment reqs. */
     if (size <= DSIZE)
         asize = 2 * DSIZE;
     else
@@ -410,12 +381,10 @@ void *mm_malloc(size_t size)
  *********************************************************/
 void *mm_realloc(void *ptr, size_t size)
 {
-    /* If size == 0 then this is just free, and we return NULL. */
     if(size == 0){
       mm_free(ptr);
       return NULL;
     }
-    /* If oldptr is NULL, then this is just malloc. */
     if (ptr == NULL)
       return (mm_malloc(size));
 
@@ -429,79 +398,53 @@ void *mm_realloc(void *ptr, size_t size)
     else
         padded_size = DSIZE * ((size + (DSIZE) + (DSIZE-1))/ DSIZE);
 
-	// Handle shrink case
     if (padded_size <= old_size)
     {
-        // CASE 1 - User wants to shrink the allocation
-        //old_size = padded_size + excess
-        //check if excess is >= min request size for tearing
         size_t excess = old_size - padded_size;
 
-        //tearing possible
         if (excess >= 2*DSIZE)
         {
-            //Fix the 2nd part of the block (the tear) - send this to the free list
-            newptr = (void *)oldptr+padded_size;	//get a pointer to the payload of the torn block
-            PUT(HDRP(newptr), PACK(excess,0));		//set the proper size for the header of the torn block - deallocate markation
-            PUT(FTRP(newptr), PACK(excess,0));		//set the proper size for the footer of the torn block - deallocate markation
+            newptr = (void *)oldptr+padded_size;
+            PUT(HDRP(newptr), PACK(excess,0));
+            PUT(FTRP(newptr), PACK(excess,0));
             appendToAvail((Block*)newptr);
 
-            //Fix the 1st part of the block - the part we send to the user
-            //The part of the relevant data is already sitting in the payload so we can return this once fixed
-            PUT(HDRP(oldptr), PACK(padded_size,1));		//set the proper size for the header of the torn block - set allocated as we give to user
-            PUT(FTRP(oldptr), PACK(padded_size,1));		//^ for footer
-            return oldptr;	//give this to the user
+            PUT(HDRP(oldptr), PACK(padded_size,1));
+            PUT(FTRP(oldptr), PACK(padded_size,1));
+            return oldptr;
         }
 
-        //tearing impossible - excess data can not be torn
         if (excess < 2*DSIZE)
         {
             return oldptr;
         }
     }
 
-    //CASE 2 - Handle expand case
-    //User wants more data
     else
     {
-
-        //Attempt a coalesce
-        //use ptr to do the coalescing and oldptr will point to the payload
-
-        //Mark as free so coalesce will be able to do its job
-        //old_size is what the block originally was
         PUT(HDRP(ptr), PACK(old_size,0));
         PUT(FTRP(ptr), PACK(old_size,0));
         ptr = coalesce(ptr);
 
-
         size_t coalesced_size = GET_SIZE(HDRP(ptr));
         if (coalesced_size >= padded_size)
         {
-            //coalesce worked properly
-            //remove the overhead so we can memcpy properly
             size_t payload_size = old_size - DSIZE;
-            // We have to use memmove because of potential overlap. Memcopy does not handle overlap
-            memmove(ptr, oldptr, payload_size);	//shift the payload if necessary
+            memmove(ptr, oldptr, payload_size);
 
-            //fix the allocated bits - give to user
             PUT(HDRP(ptr), PACK(coalesced_size,1));
             PUT(FTRP(ptr), PACK(coalesced_size,1));
             return ptr;
         }
-        //Worst case scenario - This means an extend_heap will most likely be done, unless there is a free block available
         newptr = mm_malloc(size);
         if (newptr == NULL)
         {
             return NULL;
         }
 
-        //remove the overhead that is calculated using the SIZE macro and only copy what is in the payload
-        //this should avoid problems
         size_t payload_size = old_size - DSIZE;
         memcpy(newptr, oldptr, payload_size);
 
-        // The old location was coalesced and is now free. Add it to the free list
         appendToAvail((Block*)ptr);
 
         return newptr;
