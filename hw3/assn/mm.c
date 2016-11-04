@@ -67,6 +67,7 @@ team_t team = {
 #define BUDDY_ALLOCATOR_LENGTH  21
 
 typedef struct heapNodes {
+    int buddy_index;
     void *freeBlock;
     struct heapNodes *next;
 } heapNode;
@@ -97,12 +98,13 @@ void *deq (heapNode *heapHead)
     return free_block;
 }
 
-void enq (void * free_block, int destIndex)
+void enq (void * free_block, int destIndex, int buddyIndex)
 {
     // TODO: finish mm_malloc so this actually works
     heapNode * newNode = mm_malloc(sizeof(heapNode)); 
     newNode->next = NULL;
     newNode->freeBlock = free_block;
+    newNode->buddy_index = buddyIndex;
     heapNode * tmpNode = buddy[destIndex].heap_list;
     while (tmpNode->next != NULL)
     {
@@ -132,17 +134,44 @@ void split(int startIndex)
     void * freeBlock = deq(currBuddy->heap_list); 
     // split block into two halves
     startIndex--;
-    void * freeBlock2 = freeBlock + (1<<startIndex); 
+    void * freeBlock2 = freeBlock + (DSIZE<<startIndex); 
+    // TODO: place the splits
     // place halves into lower level heap
-    enq(freeBlock, startIndex);
-    enq(freeBlock2, startIndex);
+    enq(freeBlock, startIndex, 0);
+    enq(freeBlock2, startIndex, 1);
     return;
 }
 
-void coalesce2(int startIndex)
+void coalesce2(int startIndex, void *bp)
 {
+    heapNode *tmpNode = buddy[startIndex]->heap_list;
+    void *coalesceBlock = NULL;
+    size_t size;
     // recursive function that moves up, coalescing adjacent buddies
     // as it goes. scans the heaplist of each size.
+    while (tmpNode != NULL)
+    {
+        if (tmpNode->buddy_index == 0) 
+        {
+            if (tmpNode->freeBlock == PREV_BLKP(bp))
+            {
+                size = (DSIZE << (++startIndex));
+                deq(tmpNode);
+                return coalesce2(startIndex + 1, bp);
+            }
+        }
+        if (tmpNode->buddy_index == 1) 
+        {
+            if (tmpNode->freeBlock == NEXT_BLKP(bp))
+            {
+                size = (DSIZE << (++startIndex));
+                deq(tmpNode);
+                return coalesce2(startIndex + 1, bp);
+            }
+        }
+        tmpNode = tmpNode->next;
+    }
+    return bp;
 }
 
 /**********************************************************
@@ -165,7 +194,7 @@ int mm_init(void)
     // init backbone / buddy allocators
     for (i = 0; i < BUDDY_ALLOCATOR_LENGTH; i++) 
     {
-        buddy[i].size = DSIZE << i;
+        buddy[i].size = DSIZE << i; // TODO: if we change this, change coalesce as well
         buddy[i].heap_list = NULL;
     }
 
@@ -184,35 +213,43 @@ int mm_init(void)
  **********************************************************/
 void *coalesce(void *bp)
 {
-    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
-    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+    // size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
+    // size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+    // size_t size = GET_SIZE(HDRP(bp));
+
+    // if (prev_alloc && next_alloc) {       /* Case 1 */
+        // return bp;
+    // }
+
+    // else if (prev_alloc && !next_alloc) { /* Case 2 */
+        // size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        // PUT(HDRP(bp), PACK(size, 0));
+        // PUT(FTRP(bp), PACK(size, 0));
+        // return (bp);
+    // }
+
+    // else if (!prev_alloc && next_alloc) { /* Case 3 */
+        // size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+        // PUT(FTRP(bp), PACK(size, 0));
+        // PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
+        // return (PREV_BLKP(bp));
+    // }
+
+    // else {            /* Case 4 */
+        // size += GET_SIZE(HDRP(PREV_BLKP(bp)))  +
+            // GET_SIZE(FTRP(NEXT_BLKP(bp)))  ;
+        // PUT(HDRP(PREV_BLKP(bp)), PACK(size,0));
+        // PUT(FTRP(NEXT_BLKP(bp)), PACK(size,0));
+        // return (PREV_BLKP(bp));
+    // }
     size_t size = GET_SIZE(HDRP(bp));
-
-    if (prev_alloc && next_alloc) {       /* Case 1 */
-        return bp;
+    int log2_size;
+    while (size > DSIZE)
+    {
+        size <<= 1;
+        log2_size++;
     }
-
-    else if (prev_alloc && !next_alloc) { /* Case 2 */
-        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
-        PUT(HDRP(bp), PACK(size, 0));
-        PUT(FTRP(bp), PACK(size, 0));
-        return (bp);
-    }
-
-    else if (!prev_alloc && next_alloc) { /* Case 3 */
-        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
-        PUT(FTRP(bp), PACK(size, 0));
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
-        return (PREV_BLKP(bp));
-    }
-
-    else {            /* Case 4 */
-        size += GET_SIZE(HDRP(PREV_BLKP(bp)))  +
-            GET_SIZE(FTRP(NEXT_BLKP(bp)))  ;
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size,0));
-        PUT(FTRP(NEXT_BLKP(bp)), PACK(size,0));
-        return (PREV_BLKP(bp));
-    }
+    return coalesce2(log2_size, bp);
 }
 
 
