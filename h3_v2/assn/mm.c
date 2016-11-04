@@ -24,15 +24,15 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "",
+    "Team Awesome",
     /* First member's full name */
-    "",
+    "Lennox Stevenson",
     /* First member's email address */
-    "",
+    "lennox.stevenson@mail.utoronto.ca",
     /* Second member's full name (leave blank if none) */
-    "",
+    "Rahul Chandan",
     /* Second member's email address (leave blank if none) */
-    ""
+    "rahul.chandan@mail.utoronto.ca"
 };
 
 /*************************************************************************
@@ -67,6 +67,37 @@ team_t team = {
 void* heap_listp = NULL;
 
 /**********************************************************
+ * structures for buddy allocator
+ * 
+ *
+ **********************************************************/
+
+typedef struct Blocks {
+    Block *next;
+} Block;
+ 
+typedef struct BuddyAllocators {
+    // might need next, prev for later
+    Block *head;
+} BuddyAllocator;    
+
+unsigned long base_addr;
+#define POOL_ORDER  21;
+#define MIN_ORDER   2;
+
+BuddyAllocator avail[POOL_ORDER-MIN_ORDER];
+
+/**********************************************************
+ * functions for buddy allocator
+ *
+ *
+ **********************************************************/
+
+void * find_buddy(Block *block, unsigned long order)
+{
+}
+
+/**********************************************************
  * mm_init
  * Initialize the heap, including "allocation" of the
  * prologue and epilogue
@@ -80,6 +111,14 @@ void* heap_listp = NULL;
      PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
      PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
      heap_listp += DSIZE;
+     
+     int i;
+     for (i = MIN_ORDER; i < POOL_ORDER; i++)
+     {
+         avail[i].head = NULL;
+     }
+     
+     base_addr = (unsigned long) heap_listp;
 
      return 0;
  }
