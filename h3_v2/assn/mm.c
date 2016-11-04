@@ -24,15 +24,15 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "Team Awesome",
+    "",
     /* First member's full name */
-    "Lennox Stevenson",
+    "",
     /* First member's email address */
-    "lennox.stevenson@mail.utoronto.ca",
+    "",
     /* Second member's full name (leave blank if none) */
-    "Rahul",
+    "",
     /* Second member's email address (leave blank if none) */
-    "r@r.com"
+    ""
 };
 
 /*************************************************************************
@@ -64,108 +64,25 @@ team_t team = {
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
-#define BUDDY_ALLOCATOR_LENGTH  21
-
-typedef struct heapNodes {
-    void *freeBlock;
-    struct heapNodes *next;
-} heapNode;
-
-typedef struct buddy_allocators {
-	int size;
-	heapNode * heap_list;
-//	struct buddy_allocator *next_buddy;
-} buddy_allocator;
-
-buddy_allocator buddy[BUDDY_ALLOCATOR_LENGTH]; // initialize as global variables for now
-
-void* heap_listp;
-int count = 0;
-
-/**********************************************************
- * buddy allocator and queue specific functions
- * split, coalesce, etc.
- *
- **********************************************************/
-void *deq (heapNode *hn)
-{
-    heapNode *tmp;
-    tmp = hn;
-    void *free_block = tmp->freeBlock;
-    hn = hn->next;
-    return free_block;
-}
-
-void enq (void * free_block, int destIndex)
-{
-    // TODO: finish mm_malloc so this actually works
-    heapNode * newNode = mm_malloc(sizeof(heapNode)); 
-    newNode->next = NULL;
-    newNode->freeBlock = free_block;
-    heapNode * tmpNode = buddy[destIndex].heap_list;
-    while (tmpNode->next != NULL)
-    {
-        tmpNode = tmpNode->next;
-    }
-    tmpNode->next = newNode;
-    return;
-}
-
-void split(int startIndex)
-{
-    // start with one index higher than the one you want resources for
-    if (startIndex == BUDDY_ALLOCATOR_LENGTH)
-    {
-        // could not find anything to split
-        // add chunk to buddy[BUDDY_ALLOCATOR_LENGTH-1]
-        return;
-    }
-    buddy_allocator *currBuddy = &buddy[startIndex];
-    if (currBuddy->heap_list == NULL)
-    {
-        // no blocks found in current level
-        // allocate blocks at level desiredIndex + 1
-        split(startIndex + 1);
-    }
-    // dequeue from heap
-    void * freeBlock = deq(currBuddy->heap_list); 
-    // split block into two halves
-    startIndex--;
-    void * freeBlock2 = freeBlock + (1<<startIndex); 
-    // place halves into lower level heap
-    enq(freeBlock, startIndex);
-    enq(freeBlock2, startIndex);
-    return;
-}
+void* heap_listp = NULL;
 
 /**********************************************************
  * mm_init
  * Initialize the heap, including "allocation" of the
  * prologue and epilogue
  **********************************************************/
-int mm_init(void)
-{
-    int i;
-    
-    if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
-    	return -1;
-    PUT(heap_listp, 0);                         // alignment padding
-    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
-    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
-    PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
-    heap_listp += DSIZE;
+ int mm_init(void)
+ {
+   if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
+         return -1;
+     PUT(heap_listp, 0);                         // alignment padding
+     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
+     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
+     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
+     heap_listp += DSIZE;
 
-    // init backbone / buddy allocators
-    for (i = 0; i < BUDDY_ALLOCATOR_LENGTH; i++) 
-    {
-        buddy[i].size = DSIZE << i;
-        buddy[i].heap_list = NULL;
-    }
-
-    return 0;
-}
-
-// Don't think coalesce exists in segregated method
+     return 0;
+ }
 
 /**********************************************************
  * coalesce
@@ -208,13 +125,6 @@ void *coalesce(void *bp)
     }
 }
 
-void coalesce2(int startIndex)
-{
-    // recursive function that moves up, coalescing adjacent buddies
-    // as it goes. scans the heaplist of each size.
-}
-
-
 /**********************************************************
  * extend_heap
  * Extend the heap by "words" words, maintaining alignment
@@ -223,10 +133,6 @@ void coalesce2(int startIndex)
  **********************************************************/
 void *extend_heap(size_t words)
 {
-    // extend heap should increase create free blocks
-    // for the nearest ceiling power of 2 block size
-    // for the buddy allocator.
-
     char *bp;
     size_t size;
 
@@ -241,9 +147,6 @@ void *extend_heap(size_t words)
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));        // new epilogue header
 
     /* Coalesce if the previous block was free */
-
-    // may not need depending on heap_list implementation for buddy allocator
-
     return coalesce(bp);
 }
 
@@ -254,22 +157,16 @@ void *extend_heap(size_t words)
  * Return NULL if no free blocks can handle that size
  * Assumed that asize is aligned
  **********************************************************/
-heapNode *find_fit(size_t asize)
+void * find_fit(size_t asize)
 {
-    heapNode *bp;
-
-    // go through buddy allocators and find best fit
-
-    int i, j;
-    for (i = 0; i != NULL; i++) {
-        if (buddy_allocators[i].size <= asize) {
-            for (hn = buddy[i].heap_list; GET_SIZE(HDRP(hn->freeBlock)) > 0; hn = hn->next) {
-                if (!GET_ALLOC(HDRP(hn->freeBlock))) {
-    		        return hn;
-                }
-    	    } 
+    void *bp;
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
+    {
+        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
+        {
+            return bp;
         }
-	}
+    }
     return NULL;
 }
 
@@ -295,11 +192,10 @@ void mm_free(void *bp)
     if(bp == NULL){
       return;
     }
-
     size_t size = GET_SIZE(HDRP(bp));
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
-    coalesce(bp); 			// could remove depending on if needed for segregated
+    coalesce(bp);
 }
 
 
@@ -315,7 +211,7 @@ void *mm_malloc(size_t size)
 {
     size_t asize; /* adjusted block size */
     size_t extendsize; /* amount to extend heap if no fit */
-    heapNode *hn;
+    char * bp;
 
     /* Ignore spurious requests */
     if (size == 0)
@@ -328,8 +224,8 @@ void *mm_malloc(size_t size)
         asize = DSIZE * ((size + (DSIZE) + (DSIZE-1))/ DSIZE);
 
     /* Search the free list for a fit */
-    if ((hn = find_fit(asize)) != NULL) {
-        place(deq(hn), asize);
+    if ((bp = find_fit(asize)) != NULL) {
+        place(bp, asize);
         return bp;
     }
 
@@ -337,7 +233,7 @@ void *mm_malloc(size_t size)
     extendsize = MAX(asize, CHUNKSIZE);
     if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
         return NULL;
-    place(bp, asize); // cant assume to place at beginning need to run find fit again
+    place(bp, asize);
     return bp;
 
 }
