@@ -44,6 +44,7 @@ team_t team = {
 #define CHUNKSIZE   (1<<7)      /* initial heap size (bytes) */
 
 #define MAX(x,y) ((x) > (y)?(x) :(y))
+#define MIN
 
 /* Pack a size and allocated bit into a word */
 #define PACK(size, alloc) ((size) | (alloc))
@@ -74,6 +75,7 @@ void* heap_listp = NULL;
 
 typedef struct Blocks {
     Block *next;
+	void *bp;
 } Block;
  
 typedef struct BuddyAllocators {
@@ -82,8 +84,9 @@ typedef struct BuddyAllocators {
 } BuddyAllocator;    
 
 unsigned long base_addr;
-#define POOL_ORDER  21;
-#define MIN_ORDER   2;
+#define POOL_ORDER  21
+#define MIN_ORDER   1
+#define NUM_BUDDY_ALLOCATORS (POOL_ORDER - MIN_ORDER)
 
 BuddyAllocator avail[POOL_ORDER-MIN_ORDER];
 
@@ -215,11 +218,33 @@ void * find_fit(size_t asize)
  **********************************************************/
 void place(void* bp, size_t asize)
 {
-  /* Get the current block size */
-  size_t bsize = GET_SIZE(HDRP(bp));
+	/* Get the current block size */
+	size_t bsize = GET_SIZE(HDRP(bp));
 
-  PUT(HDRP(bp), PACK(bsize, 1));
-  PUT(FTRP(bp), PACK(bsize, 1));
+	PUT(HDRP(bp), PACK(bsize, 1));
+	PUT(FTRP(bp), PACK(bsize, 1));	
+}
+
+/**********************************************************
+ * dequeue
+ * Remove the marked block from the free list
+ **********************************************************/
+void dequeue(int block_level) {
+	Block *block_to_remove = avail[block_level]->head;
+	avail[block_level]->head = block_to_remove->next;
+	return;
+}
+
+/**********************************************************
+ * find_block_level
+ * Find the block level for the level that fits the asize 
+ **********************************************************/
+size_t find_block_level(size_t asize) {
+	int cntr = 0;
+	while (asize > (size_t)(DSIZE << cntr))) {
+		cntr = cntr << 1;
+	}
+	return (size_t)cntr;
 }
 
 /**********************************************************
@@ -228,13 +253,20 @@ void place(void* bp, size_t asize)
  **********************************************************/
 void mm_free(void *bp)
 {
-    if(bp == NULL){
+	Block *block;
+	size_t block_level;
+	size_t size = GET_SIZE(HDRP(bp));
+
+	if(bp == NULL){
       return;
     }
-    size_t size = GET_SIZE(HDRP(bp));
-    PUT(HDRP(bp), PACK(size,0));
+	
+	block_level = getOrder(GET_SIZE(HDRP(bp)));
+	block = appendToAvail(block_level, bp);
+    
+	PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
-    coalesce(bp);
+    coalesce(block);
 }
 
 
@@ -250,7 +282,10 @@ void *mm_malloc(size_t size)
 {
     size_t asize; /* adjusted block size */
     size_t extendsize; /* amount to extend heap if no fit */
-    char * bp;
+	size_t block_level; // current block size
+    Block *block;
+	void *_bp;
+	int i, j;
 
     /* Ignore spurious requests */
     if (size == 0)
@@ -262,18 +297,53 @@ void *mm_malloc(size_t size)
     else
         asize = DSIZE * ((size + (DSIZE) + (DSIZE-1))/ DSIZE);
 
-    /* Search the free list for a fit */
-    if ((bp = find_fit(asize)) != NULL) {
-        place(bp, asize);
-        return bp;
-    }
+	block_level = find_block_level(asize);// find block level
 
-    /* No fit found. Get more memory and place the block */
+	// if block level n has free block
+	// get free block, dequeue, place, return
+	if (avail[block_level]->head != NULL) {
+		block = avail[block_level].head;
+		_bp = block.bp;
+		dequeue(block_level);
+		place(_bp, asize);
+		return _bp;
+	}
+
+	// find if block level m > n has free block
+	for (i = block_level; i < NUM_BUDDY_ALLOCATORS; i++) {
+
+		// if block level m has available block, split and use
+		if (avail[i]->head != NULL) {
+			block = splitToSize(avail[block_level].head, i, block_level);
+			_bp = block.bp;
+			dequeue(block_level);
+			place(_bp, asize);
+			return _bp;
+		}
+	}
+	
+	// if no blocks above are free, need to add new level
+	// to block allocator
+
+	// extend heap
+	// add new tier
+	// split that tier
+	// set the block
+		
+    /* Search the free list for a fit 
+    if ((block = find_fit(asize)) != NULL) {
+		_bp = block-> bp;
+		place(_bp, asize);
+		dequeue(block);
+        return _bp;
+    }
+    /* No fit found. Get more memory and place the block 
     extendsize = MAX(asize, CHUNKSIZE);
     if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
         return NULL;
     place(bp, asize);
     return bp;
+	*/
 
 }
 
