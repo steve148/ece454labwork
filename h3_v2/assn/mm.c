@@ -1,12 +1,33 @@
 /*
- * This implementation replicates the implicit list implementation
- * provided in the textbook
- * "Computer Systems - A Programmer's Perspective"
- * Blocks are never coalesced or reused.
- * Realloc is implemented directly using mm_malloc and mm_free.
+ * This is an implementation of segregated lists for memory allocation.
+ * It makes use of an array of linked lists that keep track of different
+ * sized blocks on the heap, very much like buddy allocator but with less
+ * strict size constraints.
  *
- * NOTE TO STUDENTS: Replace this header comment with your own header
- * comment that gives a high level description of your solution.
+ * The only global variables that this algorithm needs are the array elements
+ * in the available blocks array, that stores available blocks in segregated
+ * lists based on the ceil_log2 of their size. The ceil_log2 of the array size
+ * corresponds to the array index of the available blocks array. Each element of
+ * the block array is a pointer to the head of a circular doubly-linked list, 
+ * all the nodes of this list are stored at the start of the payload of a given 
+ * block. This means that there is an additional heap overhead to implement this
+ * algorithm. 
+ *
+ * As each list node has two struct pointers (*next and *prev), the  overhead
+ * will be 2*WSIZE. The overhead trade-off is worth it as the implementation
+ * of the malloc functions becomes fairly efficient as a result, with the
+ * exception of the find_fit function, which performs asymmetrical splits and
+ * could hypothetically pass through the entire available table before return:
+ *
+ * Task                                     Complexity
+ * available block removal                  O(1)
+ * appending to available linked-list       O(1)
+ * coalesce                                 O(1)
+ * find_fit                                 O(N*L)
+ *      where N is number of linked-lists, L is length of the list
+ * free                                     O(1)
+ * malloc                                   O(1)
+ *
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,6 +90,9 @@ team_t team = {
 #define MIN_BLOCK_SIZE 32
 #define MIN_BLOCK_PWR 5
 
+// Comment this out if you don't watch full mm_check() to run
+#define DEBUG 1
+
 void* heap_listp = NULL;
 
 typedef struct Blocks {
@@ -80,7 +104,7 @@ Block *avail[NUM_FREE_LISTS];
 
 /*
  * getAvailIndex
- * Maps a given size to an appropriate free list.
+ * Maps a given size to the appropriate available array index.
  */
 int getAvailIndex(size_t size)
 {
@@ -98,7 +122,7 @@ int getAvailIndex(size_t size)
 
 /**********************************************************
  * place
- * Mark the block as allocated
+ * Mark the block as allocated, and write its size
  **********************************************************/
 void place(void* bp, size_t asize)
 {
@@ -110,7 +134,7 @@ void place(void* bp, size_t asize)
 
 /*
  * removeFromAvail
- * Remove a free block from free list.
+ * Remove a free block from available list.
  */
 void removeFromAvail(Block *block)
 {
@@ -464,6 +488,74 @@ void *mm_realloc(void *ptr, size_t size)
  * Check the consistency of the memory heap
  * Return nonzero if the heap is consistant.
  *********************************************************/
+#ifndef DEBUG
+inline
+#endif
 int mm_check(void){
-  return 1;
+    int returnVal = 1;
+    #ifdef DEBUG
+    void *baseAddr = heap_listp;
+    
+    printf("\n\n+++++ HEAP INFO +++++\n");
+    while (GET_SIZE(HDRP(baseAddr)) != 0)
+    {
+        printf("Address: 0x%x\tSize: %d\tAllocated: %d\n", baseAddr,
+                GET_SIZE(HDRP(baseAddr)), GET_ALLOC(HDRP(baseAddr)) );
+                
+        baseAddr = NEXT_BLKP(baseAddr);
+    }
+    printf("\n\n+++++ FREE LIST +++++\n");
+    int i;
+    for (i = 0; i < NUM_FREE_LISTS; i++)
+    {
+        if (avail[i] != NULL)
+        {
+            Block* temp = avail[i];
+            printf("*** INDEX %d:\n", i);
+            do
+            {
+                printf("->(SIZE: %d, ALLOC: %d)", GET_SIZE(HDRP(temp)), GET_ALLOC(HDRP(temp)));
+                if (GET_ALLOC(HDRP(temp))) {
+                    printf("\nError: Allocated block @ 0x%x in free-list!\n", temp);
+                    returnVal = 0;
+                    break;
+                }
+                temp = temp->next;
+            }
+            while (temp != avail[i]);
+        }
+        else
+        {
+            printf("*** INDEX %d:\n->NULL\n", i);
+        }
+    }
+    printf("\n\n++++++ ERROR CHECKING +++++\n");
+    
+    baseAddr = heap_listp;
+    baseAddr = NEXT_BLKP(baseAddr);
+    while (GET_SIZE(HDRP(baseAddr)) != 0)
+    {
+        size = GET_SIZE(HDRP(baseAddr));
+                
+        if (size % DSIZE) {
+            printf("Error: Block @ 0x%x not a multiple of DSIZE!\n", baseAddr);
+            returnVal = 0;
+        }
+        if (size < 2*DSIZE || ((size + (DSIZE-1)) & ~(DSIZE-1))) {
+            printf("Error: Block @ 0x%x is improperly sized!\n", baseAddr);
+            returnVal = 0;
+        }
+        if (GET_SIZE(HDRP(baseAddr))!=GET_SIZE(FTRP(baseAddr))) {
+            printf("Error: Block @ 0x%x has mismatched sizes in header and footer!\n", baseAddr);
+            returnVal = 0;
+        }
+        if (GET_ALLOC(HDRP(baseAddr)) == GET_ALLOC(FTRP(baseAddr))) {
+            printf("Error: Block @ 0x%x has mismatched allocation in header and footer!\n", baseAddr);
+            returnVal = 0;
+        }
+        
+        baseAddr = NEXT_BLKP(baseAddr);
+    }
+    #endif
+    return returnVal;
 }
