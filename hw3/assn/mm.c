@@ -439,7 +439,7 @@ void * find_fit(size_t asize)
                 // Move onto the next pointer
                 temp = temp->next;
             }
-            while (temp != free_list_array[free_list_index]); // Continue until we are back where we started
+            while (temp != free_list_array[i]); // Continue until we are back where we started
         }
     }
 

@@ -39,12 +39,11 @@ team_t team = {
  * Basic Constants and Macros
  * You are not required to use these macros but may find them helpful.
 *************************************************************************/
-#define WSIZE       		 sizeof(void *)                  /* word size (bytes) */
-#define DSIZE       		 (2 * WSIZE)                     /* doubleword size (bytes) */
-#define CHUNKSIZE            (1<<7) /* initial heap size (bytes) */
+#define WSIZE       	sizeof(void *)  /* word size (bytes) */
+#define DSIZE       	(2 * WSIZE)     /* doubleword size (bytes) */
+#define CHUNKSIZE	(1<<7) 		/* initial heap size (bytes) */
 
 #define MAX(x,y) ((x) > (y)?(x) :(y))
-#define MIN
 
 /* Pack a size and allocated bit into a word */
 #define PACK(size, alloc) ((size) | (alloc))
@@ -65,25 +64,24 @@ team_t team = {
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
-void* heap_listp = NULL;
+// Constants for segregated list implementation
+#define NUM_FREE_LISTS 8
+#define MIN_BLOCK_SIZE 32
+#define MIN_BLOCK_PWR 5
 
-/**********************************************************
- * structures for buddy allocator
- * 
- *
- **********************************************************/
+void* heap_listp = NULL;
 
 typedef struct Blocks {
     struct Blocks *next;
     struct Blocks *prev;
 } Block;
 
-#define NUM_FREE_LISTS 8
-#define MIN_BLOCK_SIZE 32
-#define MIN_BLOCK_PWR 5
-
 Block *avail[NUM_FREE_LISTS];
 
+/*
+ * getAvailIndex
+ * Maps a given size to an appropriate free list.
+ */
 int getAvailIndex(size_t size)
 {
     size_t counter = 0;
@@ -110,6 +108,10 @@ void place(void* bp, size_t asize)
 	PUT(FTRP(bp), PACK(bsize, 1));	
 }
 
+/*
+ * removeFromAvail
+ * Remove a free block from free list.
+ */
 void removeFromAvail(Block *block)
 {
     size_t size = GET_SIZE(HDRP(block));
@@ -135,6 +137,10 @@ void removeFromAvail(Block *block)
     }
 }
 
+/*
+ * appendToAvail
+ * Adds a free block to its corresponding free list.
+ */
 void appendToAvail(Block *temp)
 {   
     size_t size = GET_SIZE(HDRP(temp));
