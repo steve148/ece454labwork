@@ -93,18 +93,18 @@ main (int argc, char* argv[]){
 
       // force the sample to be within the range of 0..RAND_NUM_UPPER_BOUND-1
       key = rnum % RAND_NUM_UPPER_BOUND;
+      pthread_mutex_lock(&global_lock);
 
       // if this sample has not been counted before
       if (!(s = h.lookup(key))){
-	pthread_mutex_lock(&global_lock);
 	// insert a new element for it into the hash table
 	s = new sample(key);
 	h.insert(s);
-	pthread_mutex_unlock(&global_lock);
       }
 
       // increment the count for the sample
       s->count++;
+      pthread_mutex_unlock(&global_lock);
     }
   }
 
