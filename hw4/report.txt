@@ -41,9 +41,63 @@ Only case where performance got worst was for TM running on a single thread, aka
 
 Q11. Repeat the data collection above with samples to skip set to 100 and give the table. How does this change impact the results compared with when set to 50? Why?
 
+TM and Element do better than list in this case, TM does notably better. This is because they are able to draw more parallelism from the code that has more busy time, because they have more generality (element lock has more mutexes, TM has virtually infinite mutexes without initialization overhead but with some overhead for making code atomic). High overhead from the busy loop mixes up the thread ordering and the loop essentially blocks threads, more locks/ more generality allows threads to extract mroe parallelism. Threads come out of loop at a similar time, having more options to parallelize allows you to perform better. If delta t of threads wanting the same mutex coming into the busy loop stays approximately the same, then the longer the busy loop, the higher the chances of bottleneck at the mutex.
 
+Guarantees no locking on the atomic portion of your code, performs better when the atomic section is small compared to rest of the code.
 
 Q12. Which approach should OptsRus ship? Keep in mind that some customers might be using multicores with more than 4 cores, while others might have only one or two cores.
 
+Speed wise - list/element
+Maintainability and legibility wise - TM is the obvious choice, and it performs comparably to list and element with a small tradeoff at small skip amounts. At large skip amounts, blackbox (you're using something you don't understand). With more added complexity, TM would be super great.
 
+For skip 50 elements:
 
+*********************************************************
+*   Locking Scheme	*  num_threads  *  elapsed time	*
+*********************************************************
+*  Normal		*	1	*	10.37	*
+*			*	2	*	10.38	*
+*			*	4	*	10.37	*
+*********************************************************
+*  Global		*	1	*	10.54	*
+*			*	2	*	5.85	*
+*			*	4	*	4.66	*
+*********************************************************
+*  List			*	1	*	10.69	*
+*			*	2	*	5.61	*
+*			*	4	*	3.07	*
+*********************************************************
+*  Element		*	1	*	10.72	*
+*			*	2	*	5.69	*
+*			*	4	*	3.52	*
+*********************************************************
+*  TM			*	1	*	11.31	*
+*			*	2	*	9.67	*
+*			*	4	*	5.58	*
+*********************************************************
+
+For skip 100 elements:
+
+*********************************************************
+*   Locking Scheme	*  num_threads  *  elapsed time	*
+*********************************************************
+*  Normal		*	1	*	20.58	*
+*			*	2	*	21.14	*
+*			*	4	*	21.11	*
+*********************************************************
+*  Global		*	1	*	21.62	*
+*			*	2	*	15.11	*
+*			*	4	*	8.74	*
+*********************************************************
+*  List			*	1	*	20.91	*
+*			*	2	*	11.28	*
+*			*	4	*	7.20	*
+*********************************************************
+*  Element		*	1	*	21.54	*
+*			*	2	*	10.81	*
+*			*	4	*	6.19	*
+*********************************************************
+*  TM			*	1	*	22.02	*
+*			*	2	*	10.86	*
+*			*	4	*	6.00	*
+*********************************************************
