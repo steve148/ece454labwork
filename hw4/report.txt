@@ -1,27 +1,26 @@
 Q1. Why is it important to #ifdef out methods and datastructures that aren’t used for different versions of randtrack?
 
-In the case of using one single file, #ifdef is important 
+Important (in the case of one single file) because methods or data structures that aren't used between versions waste instruction and data memory. #ifdef simply makes sure during compilation that if the definition is not defined the #ifdef block isn't compiled and saves us the space.
 
 Q2. How difficult was using TM compared to implementing global lock above?
 
-TM was stupid easy.
+TM was stupid easy. Just had to replace the lock with __transaction_atomic { ... }
 
 Q3. Can you implement this without modifying the hash class, or without knowing its internal implementation?
 
-No since things like how the key gets hashed / translated into the list index are necessary.
+No. The hash class abstracts away how it stores the data. To implement a lock for each list you would need access to the list itself and that would require you change hash, so therefore it is not possible without modifying the hash class. 
 
 Q4. Can you properly implement this solely by modifying the hash class methods lookup and insert? Explain.
 
-The insert function takes in a sample object so it can't have 
+No. Locking on lookup and insert seperately would not protect against the race case located on incrementing count.
 
 Q5. Can you implement this by adding to the hash class a new function lookup and insert if absent? Explain.
 
-No, the reason being that since the count is modified outside the hash class then the lock inside the hash function lookup_and_insert_if_absent would not guarentee synchronization on the count. 
+No, although it would make the code cleaner it would, like Q5, not protect against the count increment race case.
 
-Q6. Can you implement it by adding new methods to the hash class lock list and unlock list? Explain.
-Implement the simplest solution above that works (or a better one if you can think of one).
+Q6. Can you implement it by adding new methods to the hash class lock list and unlock list? Explain. Implement the simplest solution above that works (or a better one if you can think of one).
 
-Yes, this is the solution we implemented. This provides a more fine grained control of when the hash list gets locked but the hazard of the caller being responsible for locking / unlocking the lists.
+Yes, this is the solution we implemented. This provides a more fine grained control of when the hash list gets locked but the hazard of the caller being responsible for locking / unlocking the lists. It also protects against the count increment race case if used properly.
 
 Q7. How difficult was using TM compared to implementing list locking above?
 
@@ -29,11 +28,30 @@ TM impleneted here was even easier.
 
 Q8. What are the pros and cons of this approach?
 
-Sample function doesn't have any locking because of seperate hash tables and therefore makes coding the sample function easier. Con of approach is that it adds overhead of having to reduce the hash tables into one, which if the hash tables were larger / of a non optimal size then it could increase the program runtime by a significant amount.
+Pros:
+- there was a significant performance increase as number of threads was increased. this implementation had the lowest average runtime of all the implementations.
+
+Cons: 
+- using a lot of memory to initialize 5 hashes (one per thread).
+- main thread has to do a lot more work than in others with reducing to one hash
 
 Q9. For samples to skip set to 50, what is the overhead for each parallelization approach? Report this as the runtime of the parallel version with one thread divided by the runtime of the single-threaded version.
 
+The table below shows the overhead of each implementation.
 
+************************************************************
+*   Locking Scheme  *  runtime with 1 thread  *  overhead *
+************************************************************
+*  Normal   * 10.37 * 1 *
+************************************************************
+*  Global   * 10.54 * 1.02 *
+************************************************************
+*  List     * 10.69 * 1.03 *
+************************************************************
+*  Element    * 10.72 * 1.03 *
+************************************************************
+*  TM     * 11.31 * 1.09 *
+************************************************************
 
 Q10. How does each approach perform as the number of threads increases? If performance gets worse for a certain case, explain why that may have happened.
 
