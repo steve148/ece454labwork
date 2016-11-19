@@ -116,6 +116,7 @@ hash<Ele,Keytype>::join(hash *h){
     while ( (e = h->get_list(i)->pop()) != NULL)
       entries[HASH_INDEX(e->key(),my_size_mask)].push(e);
   }
+  free(h);
 }
 
 #endif
