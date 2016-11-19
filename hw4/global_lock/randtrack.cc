@@ -1,7 +1,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <pthread.h>
 #include "defs.h"
 #include "hash.h"
 
@@ -46,6 +46,8 @@ class sample {
 // the element and key value here: element is "class sample" and
 // key value is "unsigned".  
 hash<sample,unsigned> h;
+
+pthread_mutex_t global_lock;
 
 int  
 main (int argc, char* argv[]){
@@ -93,11 +95,12 @@ main (int argc, char* argv[]){
       key = rnum % RAND_NUM_UPPER_BOUND;
 
       // if this sample has not been counted before
-      if (!(s = h.lookup(key))){
-	
+      if (!(s = h.lookup(key)))
+	pthread_mutex_lock(&global_lock);{
 	// insert a new element for it into the hash table
 	s = new sample(key);
-	h.insert(s);
+	h.insert(s)
+	pthread_mutex_unlock(&global_lock);;
       }
 
       // increment the count for the sample
