@@ -122,6 +122,8 @@ int main (int argc, char* argv[]){
   // initialize a 16K-entry (2**14) hash of empty lists
   h.setup(14);
   
+  pthread_mutex_init(&global_lock,NULL);
+  
   if (num_threads == 1) {
         thread_args* bounds = (thread_args *) malloc(sizeof(thread_args));
         bounds->start = 0 ;
