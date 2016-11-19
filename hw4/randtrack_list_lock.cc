@@ -7,7 +7,7 @@
 
 #define SAMPLES_TO_COLLECT   10000000
 #define RAND_NUM_UPPER_BOUND   100000
-#define NUM_SEED_STREAMS            4
+#define NUM_SEED_STREAMS            4	
 
 /* 
  * ECE454 Students: 
@@ -52,7 +52,6 @@ typedef struct {
 // key value is "unsigned".  
 hash<sample,unsigned> h;
 
-pthread_mutex_t list_lock[RAND_NUM_UPPER_BOUND];
 pthread_t tid[4];
 
 void* sample_shit(void *args) {
@@ -78,7 +77,7 @@ void* sample_shit(void *args) {
       // force the sample to be within the range of 0..RAND_NUM_UPPER_BOUND-1
       key = rnum % RAND_NUM_UPPER_BOUND;
       
-      pthread_mutex_lock(&list_lock[key]);
+      h.locklist(key);
       // if this sample has not been counted before
       if (!(s = h.lookup(key))){
 	
@@ -89,7 +88,7 @@ void* sample_shit(void *args) {
 
       // increment the count for the sample
       s->count++;
-      pthread_mutex_unlock(&list_lock[key]);
+      h.unlocklist(key);
     }
   }
   return NULL;
@@ -121,9 +120,6 @@ int main (int argc, char* argv[]){
 
   // initialize a 16K-entry (2**14) hash of empty lists
   h.setup(14);
-  
-  for (i = 0; i < RAND_NUM_UPPER_BOUND; i++)
-    pthread_mutex_init(&list_lock[i],NULL);
   
   if (num_threads == 1) {
         thread_args* bounds = (thread_args *) malloc(sizeof(thread_args));

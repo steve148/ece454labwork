@@ -3,9 +3,14 @@
 #define HASH_H
 
 #include <stdio.h>
+#include <pthread.h>
 #include "list.h"
 
+#define NUM_HASH_LISTS		16384
+
 #define HASH_INDEX(_addr,_size_mask) (((_addr) >> 2) & (_size_mask))
+
+pthread_mutex_t list_lock[NUM_HASH_LISTS];
 
 template<class Ele, class Keytype> class hash;
 
@@ -24,6 +29,8 @@ template<class Ele, class Keytype> class hash {
   void print(FILE *f=stdout);
   void reset();
   void cleanup();
+  void locklist(Keytype k);
+  void unlocklist(Keytype k);
 };
 
 template<class Ele, class Keytype> 
@@ -33,6 +40,18 @@ hash<Ele,Keytype>::setup(unsigned the_size_log){
   my_size = 1 << my_size_log;
   my_size_mask = (1 << my_size_log) - 1;
   entries = new list<Ele,Keytype>[my_size];
+}
+
+template<class Ele, class Keytype> 
+void 
+hash<Ele,Keytype>::locklist(Keytype k){
+	pthread_mutex_lock(&list_lock[HASH_INDEX(k, my_size_mask)]);
+}
+
+template<class Ele, class Keytype> 
+void 
+hash<Ele,Keytype>::unlocklist(Keytype k){
+	pthread_mutex_unlock(&list_lock[HASH_INDEX(k, my_size_mask)]);
 }
 
 template<class Ele, class Keytype> 
