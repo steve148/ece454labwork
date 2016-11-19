@@ -196,6 +196,8 @@ void appendToAvail(Block *temp)
  * - the next block is available for coalescing
  * - the previous block is available for coalescing
  * - both neighbours are available for coalescing
+ * Also makes sure to remove the coalesced block from the
+ * free list.
  **********************************************************/
 void *coalesce(void *bp)
 {
@@ -377,6 +379,7 @@ void *mm_malloc(size_t size)
     if (size == 0)
         return NULL;
 
+	
 	if (size < 512) {
         size--;
         size |= size >> 1;
@@ -506,6 +509,8 @@ int mm_check(void){
     }
     printf("\n\n+++++ FREE LIST +++++\n");
     int i;
+    int size = -1;
+    int free_status = -1;
     for (i = 0; i < NUM_FREE_LISTS; i++)
     {
         if (avail[i] != NULL)
