@@ -1,0 +1,49 @@
+Q1. Why is it important to #ifdef out methods and datastructures that aren’t used for different versions of randtrack?
+
+
+
+Q2. How difficult was using TM compared to implementing global lock above?
+
+TM was stupid easy.
+
+Q3. Can you properly implement this solely by modifying the hash class methods lookup and insert? Explain.
+
+No, because both the since we need to know how many *lists* the hash contains 
+
+Q4. Can you properly implement this solely by modifying the hash class methods lookup and insert? Explain.
+
+
+
+Q5. Can you implement this by adding to the hash class a new function lookup and insert if absent? Explain.
+
+
+
+Q6. Can you implement it by adding new methods to the hash class lock list and unlock list? Explain.
+Implement the simplest solution above that works (or a better one if you can think of one).
+
+
+
+Q7. How difficult was using TM compared to implementing list locking above?
+
+TM impleneted here was even easier.
+
+Q8. What are the pros and cons of this approach?
+
+
+
+Q9. For samples to skip set to 50, what is the overhead for each parallelization approach? Report this as the runtime of the parallel version with one thread divided by the runtime of the single-threaded version.
+
+
+
+Q10. How does each approach perform as the number of threads increases? If performance gets worse for a certain case, explain why that may have happened.
+
+Only case where performance got worst was for TM running on a single thread, aka. no multithreading.
+
+Q11. Repeat the data collection above with samples to skip set to 100 and give the table. How does this change impact the results compared with when set to 50? Why?
+
+
+
+Q12. Which approach should OptsRus ship? Keep in mind that some customers might be using multicores with more than 4 cores, while others might have only one or two cores.
+
+
+
