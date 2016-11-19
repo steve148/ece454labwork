@@ -44,13 +44,15 @@ class sample {
 typedef struct {
         int start;
         int end;
+	int hash_id;
 } thread_args;
 
 // This instantiates an empty hash table
 // it is a C++ template, which means we define the types for
 // the element and key value here: element is "class sample" and
 // key value is "unsigned".  
-hash<sample,unsigned> h;
+hash<sample,unsigned> final_hash;
+hash<sample,unsigned> h[4];
 
 pthread_mutex_t global_lock;
 pthread_t tid[4];
@@ -63,7 +65,9 @@ void* sample_shit(void *args) {
 
   // process streams starting with different initial numbers
   thread_args bounds = *((thread_args *) args);
+  int hash_id = bounds->hash_id;
   free(args);
+  
   for (i = bounds.start; i <= bounds.end; i++){
     rnum = i;
 
@@ -78,18 +82,16 @@ void* sample_shit(void *args) {
       // force the sample to be within the range of 0..RAND_NUM_UPPER_BOUND-1
       key = rnum % RAND_NUM_UPPER_BOUND;
       
-      pthread_mutex_lock(&global_lock);
       // if this sample has not been counted before
-      if (!(s = h.lookup(key))){
+      if (!(s = h[hash_id].lookup(key))){
 	
 	// insert a new element for it into the hash table
 	s = new sample(key);
-	h.insert(s);
+	h[hash_id].insert(s);
       }
 
       // increment the count for the sample
       s->count++;
-      pthread_mutex_unlock(&global_lock);
     }
   }
   return NULL;
@@ -120,6 +122,7 @@ int main (int argc, char* argv[]){
   sscanf(argv[2], " %d", &samples_to_skip);
 
   // initialize a 16K-entry (2**14) hash of empty lists
+  
   h.setup(14);
   
   pthread_mutex_init(&global_lock,NULL);
