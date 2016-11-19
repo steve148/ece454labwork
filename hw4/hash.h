@@ -111,8 +111,10 @@ template<class Ele, class Keytype>
 void 
 hash<Ele,Keytype>::join(hash *h){
   unsigned i;
+  Ele *e;
   for (i=0; i < my_size;i++){
-    entries[i].push(h->entries[i]);
+    while ( (e = h->get_list(i)->pop()) != NULL)
+      entries[HASH_INDEX(e->key(),my_size_mask)].push(e);
   }
 }
 

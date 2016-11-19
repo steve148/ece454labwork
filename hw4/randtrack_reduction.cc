@@ -65,7 +65,7 @@ void* sample_shit(void *args) {
 
   // process streams starting with different initial numbers
   thread_args bounds = *((thread_args *) args);
-  int hash_id = bounds->hash_id;
+  int hash_id = bounds.hash_id;
   free(args);
   
   for (i = bounds.start; i <= bounds.end; i++){
@@ -123,7 +123,9 @@ int main (int argc, char* argv[]){
 
   // initialize a 16K-entry (2**14) hash of empty lists
   
-  h.setup(14);
+  final_hash.setup(14);
+  for (i=0; i < num_threads; i++)
+    h[i].setup(14);
   
   pthread_mutex_init(&global_lock,NULL);
   
@@ -182,9 +184,9 @@ int main (int argc, char* argv[]){
 
 
   for(i = 0; i < num_threads; i++) {
-    final_hash.join(h[i]);
+    final_hash.join(&h[i]);
   }
 
   // print a list of the frequency of all samples
-  h.print();
+  final_hash.print();
 }
