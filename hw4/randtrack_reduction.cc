@@ -65,7 +65,7 @@ void* sample_shit(void *args) {
 
   // process streams starting with different initial numbers
   thread_args bounds = *((thread_args *) args);
-  int hash_id = bounds->hash_id;
+  int hash_id = bounds.hash_id;
   free(args);
   
   for (i = bounds.start; i <= bounds.end; i++){
@@ -97,6 +97,21 @@ void* sample_shit(void *args) {
   return NULL;
 }
 
+void transfer_hash(hash<sample,unsigned> *destination, hash<sample,unsigned> *source) {
+	unsigned i;
+	sample *s;
+	sample *d;
+	for (i = 0; i < RAND_NUM_UPPER_BOUND; i++) {
+		if (s = source->lookup(i)) {
+			if (!(d = destination->lookup(i))) {
+				d = new sample(i);
+				destination->insert(d);
+			}
+			d->count += s->count;
+		}
+	}
+}
+
 int main (int argc, char* argv[]){
   int i;
   int err;
@@ -123,9 +138,9 @@ int main (int argc, char* argv[]){
 
   // initialize a 16K-entry (2**14) hash of empty lists
   
-  h.setup(14);
-  
-  pthread_mutex_init(&global_lock,NULL);
+  final_hash.setup(14);
+  for(i = 0; i < num_threads; i++)
+	h[i].setup(14);
   
   if (num_threads == 1) {
         thread_args* bounds = (thread_args *) malloc(sizeof(thread_args));
@@ -180,11 +195,10 @@ int main (int argc, char* argv[]){
                 pthread_join(tid[i], NULL);
         }
 
-
-  for(i = 0; i < num_threads; i++) {
-    final_hash.join(h[i]);
-  }
+	for (i = 0; i < num_threads; i++) {
+		transfer_hash(&final_hash, &h[i]);
+	}
 
   // print a list of the frequency of all samples
-  h.print();
+  final_hash.print();
 }
