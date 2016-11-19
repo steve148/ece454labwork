@@ -142,7 +142,6 @@ int main (int argc, char* argv[]){
   for(i = 0; i < num_threads; i++)
 	h[i].setup(14);
   
-
   thread_args* bounds[4];
   int four_by_num_threads = 4/num_threads;
 

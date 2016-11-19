@@ -121,51 +121,23 @@ int main (int argc, char* argv[]){
   // initialize a 16K-entry (2**14) hash of empty lists
   h.setup(14);
   
-  if (num_threads == 1) {
-        thread_args* bounds = (thread_args *) malloc(sizeof(thread_args));
-        bounds->start = 0 ;
-        bounds->end = 3;
-        err = pthread_create(&tid[0], NULL, &sample_shit, bounds);
-  }
-  else if (num_threads == 2) {
-        thread_args *bounds1 = (thread_args *) malloc(sizeof(thread_args));
-        bounds1->start = 0 ;
-        bounds1->end = 1;
-        
-        thread_args *bounds2 = (thread_args *) malloc(sizeof(thread_args));
-        bounds2->start = 2 ;
-        bounds2->end = 3;
-        err = pthread_create(&tid[0], NULL, &sample_shit, (void *) bounds1);
-        err = pthread_create(&tid[1], NULL, &sample_shit, (void *) bounds2);
-        
-  }
-  else if (num_threads == 4) {
-        thread_args *bounds1 = (thread_args *) malloc(sizeof(thread_args));
-        bounds1->start = 0 ;
-        bounds1->end = 0;
-        
-        thread_args *bounds2 = (thread_args *) malloc(sizeof(thread_args));
-        bounds2->start = 1 ;
-        bounds2->end = 1;
-        
-        thread_args *bounds3 = (thread_args *) malloc(sizeof(thread_args));
-        bounds3->start = 2 ;
-        bounds3->end = 2;
-        
-        thread_args *bounds4 = (thread_args *) malloc(sizeof(thread_args));
-        bounds4->start = 3 ;
-        bounds4->end = 3;
-        
-        err = pthread_create(&tid[0], NULL, &sample_shit, (void *) bounds1);
-        err = pthread_create(&tid[1], NULL, &sample_shit, (void *) bounds2);
-        err = pthread_create(&tid[2], NULL, &sample_shit, (void *) bounds3);
-        err = pthread_create(&tid[3], NULL, &sample_shit, (void *) bounds4);
+  thread_args* bounds[4];
+  int four_by_num_threads = 4/num_threads;
+
+  for (i=0; i < num_threads; i++) {
+    bounds[i] = (thread_args *) malloc(sizeof(thread_args));
+    bounds[i]->start = i * four_by_num_threads;
+    bounds[i]->end = i * four_by_num_threads + (four_by_num_threads - 1);
+    err = pthread_create(&tid[i], NULL, &sample_shit, bounds[i]);
+    if (err != 0) {
+      printf("\nERROR CREATING THREAD: %d\n", err);
+    }
   }
   
-        // wait for all threads to be done
-        for(i = 0; i < num_threads; i++) {
-                pthread_join(tid[i], NULL);
-        }
+  // wait for all threads to be done
+  for(i = 0; i < num_threads; i++) {
+          pthread_join(tid[i], NULL);
+  }
 
   // print a list of the frequency of all samples
   h.print();
