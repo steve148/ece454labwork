@@ -31,6 +31,7 @@ template<class Ele, class Keytype> class hash {
   void cleanup();
   void locklist(Keytype k);
   void unlocklist(Keytype k);
+  void join(hash* h);
 };
 
 template<class Ele, class Keytype> 
@@ -106,5 +107,13 @@ hash<Ele,Keytype>::insert(Ele *e){
   entries[HASH_INDEX(e->key(),my_size_mask)].push(e);
 }
 
+template<class Ele, class Keytype> 
+void 
+hash<Ele,Keytype>::join(hash *h){
+  unsigned i;
+  for (i=0; i < my_size;i++){
+    entries[i].push(h->entries[i]);
+  }
+}
 
 #endif

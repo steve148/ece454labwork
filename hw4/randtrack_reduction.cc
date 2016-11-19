@@ -128,16 +128,19 @@ int main (int argc, char* argv[]){
         thread_args* bounds = (thread_args *) malloc(sizeof(thread_args));
         bounds->start = 0 ;
         bounds->end = 3;
+        bounds->hash_id = 0;
         err = pthread_create(&tid[0], NULL, &sample_shit, bounds);
   }
   else if (num_threads == 2) {
         thread_args *bounds1 = (thread_args *) malloc(sizeof(thread_args));
         bounds1->start = 0 ;
         bounds1->end = 1;
+	bounds1->hash_id = 0;
         
         thread_args *bounds2 = (thread_args *) malloc(sizeof(thread_args));
         bounds2->start = 2 ;
         bounds2->end = 3;
+	bounds2->hash_id = 1;
         err = pthread_create(&tid[0], NULL, &sample_shit, (void *) bounds1);
         err = pthread_create(&tid[1], NULL, &sample_shit, (void *) bounds2);
         
@@ -146,18 +149,22 @@ int main (int argc, char* argv[]){
         thread_args *bounds1 = (thread_args *) malloc(sizeof(thread_args));
         bounds1->start = 0 ;
         bounds1->end = 0;
+	bounds1->hash_id = 0;
         
         thread_args *bounds2 = (thread_args *) malloc(sizeof(thread_args));
         bounds2->start = 1 ;
         bounds2->end = 1;
+	bounds2->hash_id = 1;
         
         thread_args *bounds3 = (thread_args *) malloc(sizeof(thread_args));
         bounds3->start = 2 ;
         bounds3->end = 2;
+	bounds3->hash_id = 2;
         
         thread_args *bounds4 = (thread_args *) malloc(sizeof(thread_args));
         bounds4->start = 3 ;
         bounds4->end = 3;
+	bounds4->hash_id = 3;
         
         err = pthread_create(&tid[0], NULL, &sample_shit, (void *) bounds1);
         err = pthread_create(&tid[1], NULL, &sample_shit, (void *) bounds2);
@@ -169,6 +176,11 @@ int main (int argc, char* argv[]){
         for(i = 0; i < num_threads; i++) {
                 pthread_join(tid[i], NULL);
         }
+
+
+  for(i = 0; i < num_threads; i++) {
+    final_hash.join(h[i]);
+  }
 
   // print a list of the frequency of all samples
   h.print();
