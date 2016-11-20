@@ -1,22 +1,22 @@
-Q1. Why is it important to #ifdef out methods and datastructures that aren’t used for different versions of randtrack?
+﻿Q1. Why is it important to #ifdef out methods and datastructures that aren’t used for different versions of randtrack?
 
 Important (in the case of one single file) because methods or data structures that aren't used between versions waste instruction and data memory. #ifdef simply makes sure during compilation that if the definition is not defined the #ifdef block isn't compiled and saves us the space.
 
 Q2. How difficult was using TM compared to implementing global lock above?
 
-TM was stupid easy. Just had to replace the lock with __transaction_atomic { ... }
+TM was very easy to implement in comparison to the mutex locks. Just had to surround any atomic sections with __transaction_atomic { ... }.
 
 Q3. Can you implement this without modifying the hash class, or without knowing its internal implementation?
 
-No. The hash class abstracts away how it stores the data. To implement a lock for each list you would need access to the list itself and that would require you change hash, so therefore it is not possible without modifying the hash class. 
+No. The hash class abstracts away how it stores the data. To implement a lock for each list you would need access to the list itself and that would require you to change hash, therefore it is not possible without modifying the hash class.
 
 Q4. Can you properly implement this solely by modifying the hash class methods lookup and insert? Explain.
 
-No. Locking on lookup and insert seperately would not protect against the race case located on incrementing count.
+No. Locking on lookup and insert seperately would not protect against the race case located on incrementing s->count.
 
 Q5. Can you implement this by adding to the hash class a new function lookup and insert if absent? Explain.
 
-No, although it would make the code cleaner it would, like Q5, not protect against the count increment race case.
+No, although it would make the code cleaner it would, like Q5, not protect against the s->count increment race case.
 
 Q6. Can you implement it by adding new methods to the hash class lock list and unlock list? Explain. Implement the simplest solution above that works (or a better one if you can think of one).
 
@@ -24,12 +24,12 @@ Yes, this is the solution we implemented. This provides a more fine grained cont
 
 Q7. How difficult was using TM compared to implementing list locking above?
 
-TM impleneted here was even easier.
+TM implentation here was even easier.
 
 Q8. What are the pros and cons of this approach?
 
 Pros:
-- there was a significant performance increase as number of threads was increased. this implementation had the lowest average runtime of all the implementations.
+- there was a significant performance increase as the opportunity for parallelism was increased. This implementation had the lowest average runtime of all the implementations.
 
 Cons: 
 - using a lot of memory to initialize 5 hashes (one per thread).
@@ -37,17 +37,18 @@ Cons:
 
 Q9. For samples to skip set to 50, what is the overhead for each parallelization approach? Report this as the runtime of the parallel version with one thread divided by the runtime of the single-threaded version.
 
+Table 1
 The table below shows the overhead of each implementation.
 
-************************************************************
-*   Locking Scheme  *  runtime with 1 thread  *  overhead *
-************************************************************
-*  Normal   * 10.37 * 1 *
-************************************************************
-*  Global   * 10.54 * 1.02 *
-************************************************************
-*  List     * 10.69 * 1.03 *
-************************************************************
+*************************************************************************
+*   Locking Scheme  	*  runtime with 1 thread  	*  overhead	*
+*************************************************************************
+*  Normal   		* 	10.37 			*	1	*
+*************************************************************************
+*  Global   		* 	10.54 			*	1.02 	*
+*************************************************************************
+*  List     		* 	10.69 			* 	1.03 	*
+*************************************************************************
 *  Element    * 10.72 * 1.03 *
 ************************************************************
 *  TM     * 11.31 * 1.09 *
@@ -55,19 +56,23 @@ The table below shows the overhead of each implementation.
 
 Q10. How does each approach perform as the number of threads increases? If performance gets worse for a certain case, explain why that may have happened.
 
-Only case where performance got worst was for TM running on a single thread, aka. no multithreading. It went from ~10seconds runtime to ~11.5seconds runtime. This could be because the overhead caused by transactional memory is significant enough in the case of a single thread it is noticeably slower.
+The only case where performance got worse was for TM running on a single thread, aka. no multithreading. It went from ~10seconds runtime to ~11.5seconds runtime. This could be because the overhead caused by transactional memory rendering a set of instructions atomic is significant enough in the case of a single thread that it is noticeably slower.
 
 Q11. Repeat the data collection above with samples to skip set to 100 and give the table. How does this change impact the results compared with when set to 50? Why?
 
-TM and Element do better than list in this case, TM does notably better. This is because they are able to draw more parallelism from the code that has more busy time, because they have more generality (element lock has more mutexes, TM has virtually infinite mutexes without initialization overhead but with some overhead for making code atomic). High overhead from the busy loop mixes up the thread ordering and the loop essentially blocks threads, more locks/ more generality allows threads to extract mroe parallelism. Threads come out of loop at a similar time, having more options to parallelize allows you to perform better. If delta t of threads wanting the same mutex coming into the busy loop stays approximately the same, then the longer the busy loop, the higher the chances of bottleneck at the mutex.
+(see Table 3) TM and Element do better than list in this case, TM does notably better. This is because they are able to draw more parallelism from the code now that it has more busy time, because they have more generality (i.e. element lock has more mutexes, and TM has virtually infinite mutexes without initialization overhead but with some overhead for making code atomic). Because of the high overhead from the busy loop, the loop essentially blocks threads, meaning threads go into loop, and come out of loop at a similar time, so having more options to continue allows you to perform better because the program is able to extract more parallelism. If delta t of threads wanting the same mutex coming into the busy loop stays approximately the same, then the longer the busy loop, the higher the chances of bottleneck at a mutex.
 
-Guarantees no locking on the atomic portion of your code, performs better when the atomic section is small compared to rest of the code.
+TM guarantees no locking on the atomic portion of your code, and apparently performs better when the footprint of an atomic section is small compared to rest of the code.
 
 Q12. Which approach should OptsRus ship? Keep in mind that some customers might be using multicores with more than 4 cores, while others might have only one or two cores.
 
-Speed wise - list/element
-Maintainability and legibility wise - TM is the obvious choice, and it performs comparably to list and element with a small tradeoff at small skip amounts. At large skip amounts, blackbox (you're using something you don't understand). With more added complexity, TM would be super great.
+Speed wise - list/element locking would be a good choice
 
+Maintainability and legibility wise - TM is the obvious choice, and it performs comparably to list and element with a small tradeoff at small skip amounts. At large skip amounts TM seems to outperform the other parallelism mechanisms, the only downside being that you are dealing with a blackbox (you're using something that you don't understand as easily). However, because of its simplicity, TM would be an even better choice if the company is planning to add more complexity to their program.
+
+We think TM seems to be the best choice for the above reasons.
+
+Table 2
 For skip 50 elements:
 
 *********************************************************
@@ -94,6 +99,7 @@ For skip 50 elements:
 *			*	4	*	5.58	*
 *********************************************************
 
+Table 3
 For skip 100 elements:
 
 *********************************************************
