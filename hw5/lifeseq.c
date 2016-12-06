@@ -20,6 +20,9 @@
 } while(0)
 
 #define BOARD( __board, __i, __j )  (__board[(__i) + LDA*(__j)])
+#define NUM_THREADS         8
+#define LOG2_NUM_THREADS    3
+
 
 typedef struct {
     char* inboard;
@@ -87,12 +90,12 @@ sequential_game_of_life (char* outboard,
     const int LDA = nrows;
     int curgen, i, err;
 
-    int numThreads = 4;
-    pthread_t tid[4];
+    int numThreads = NUM_THREADS;
+    pthread_t tid[NUM_THREADS];
     thread_args* tinfo = (thread_args *)malloc(numThreads*sizeof(thread_args));
 
     int rowStart = 0;
-    int rowStride = nrows >> 2;
+    int rowStride = nrows >> LOG2_NUM_THREADS;
     int rowEnd = rowStride;
 
     for (i = 0; i < numThreads; i++) 
