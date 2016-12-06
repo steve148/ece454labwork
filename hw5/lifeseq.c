@@ -39,6 +39,10 @@ void* parallel_game_of_life (void *args) {
     int end = tinfo.end;
     int nrows = tinfo.nrows;
     int ncols = tinfo.ncols;
+    int LDA = tinfo.LDA;
+
+    char* inboard = tinfo.inboard;
+    char* outboard = tinfo.outboard;
 
     /* HINT: you'll be parallelizing these loop(s) by doing a
        geometric decomposition of the output */
@@ -87,7 +91,7 @@ sequential_game_of_life (char* outboard,
 
     int numThreads = 4;
     pthread_t tid[numThreads];
-    thread_args *tinfo = malloc(numThreads*sizeof(ThreadInfo));
+    thread_args *tinfo = malloc(numThreads*sizeof(thread_args));
 
     int rowStart = 0;
     int rowStride = nrows / numThreads;
@@ -110,7 +114,7 @@ sequential_game_of_life (char* outboard,
     {
 	for (i = 0; i < numThreads; i++)
 	{
-	    err = pthread_create(&tid[i], NULL, &parallel_game_of_life, tinfo[i]);
+	    err = pthread_create(&tid[i], NULL, &parallel_game_of_life, (void*) &tinfo[i]);
 	    if (err != 0) {
 		printf("\nERROR CREATING THREAD: %d\n", err);
 	    }
