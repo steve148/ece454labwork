@@ -5,6 +5,8 @@
  ****************************************************************************/
 #include "life.h"
 #include "util.h"
+#include <stdlib.h>
+#include <stdio.h>
 #include <pthread.h>
 
 /**
@@ -87,7 +89,7 @@ sequential_game_of_life (char* outboard,
     // gens_max is the maximum number of generations
 
     const int LDA = nrows;
-    int curgen, i, j;
+    int curgen, i, j, err;
 
     int numThreads = 4;
     pthread_t tid[numThreads];
@@ -102,7 +104,7 @@ sequential_game_of_life (char* outboard,
 	tinfo[i].start = rowStart;
 	tinfo[i].end = rowEnd;
 
-	tinfo[i].LDA = nrows;
+	tinfo[i].LDA = LDA;
 	tinfo[i].nrows = nrows;
 	tinfo[i].ncols = ncols;
 	
