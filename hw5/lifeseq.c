@@ -19,7 +19,7 @@
   b2 = temp; \
 } while(0)
 
-#define BOARD( __board, __i, __j )  (__board[(__i) + LDA*(__j)])
+#define BOARD( __board, __i, __j )  (__board[(__i) + nrows*(__j)])
 #define NUM_THREADS         8
 #define LOG2_NUM_THREADS    3
 
@@ -31,32 +31,37 @@ typedef struct {
     char* outboard;
     int start;
     int end;
-    int LDA;
     int nrows;
     int ncols;
 } thread_args;
 
 // TODO: Parallelize this later, using TM
+// or possibly in-line
 void init_bitmap (char* board, const int nrows, const int ncols) {
     int i, j;
-    thread_args tinfo = *((thread_args *) args);
 
     for (i = 0; i < nrows; i++)
     {
         for (j = 0; j < ncols; j++)
         {
+            if (BOARD(board, i, j) == (char) 1)
+            {
+                board[i] = board[i] << 4;
+            }
             if (IS_ALIVE(BOARD(board, i, j)))
             {
+                const int j_nrows = j * nrows;
+
                 const int inorth = i ? i - 1 : nrows - 1;
                 const int isouth = (i != nrows - 1) ? i + 1 : 0;
-                const int jwest = j ? j - 1 : ncols - 1;
-                const int jeast = (j != ncols - 1) ? j + 1 : 0;
+                const int jwest = j ? j_nrows - nrows : (ncols - 1) * nrows;
+                const int jeast = (j != ncols - 1) ? j_nrows + nrows : 0;
 
                 INCREMENT_AT_COORD(board, inorth, jwest);
-                INCREMENT_AT_COORD(board, inorth, j);
+                INCREMENT_AT_COORD(board, inorth, j_nrows);
                 INCREMENT_AT_COORD(board, inorth, jeast);
                 INCREMENT_AT_COORD(board, isouth, jwest);
-                INCREMENT_AT_COORD(board, isouth, j);
+                INCREMENT_AT_COORD(board, isouth, j_nrows);
                 INCREMENT_AT_COORD(board, isouth, jeast);
                 INCREMENT_AT_COORD(board, i, jwest);
                 INCREMENT_AT_COORD(board, i, jeast);
@@ -74,7 +79,6 @@ void* parallel_game_of_life (void *args) {
     int end = tinfo.end;
     int nrows = tinfo.nrows;
     int ncols = tinfo.ncols;
-    int LDA = tinfo.LDA;
 
     char* inboard = tinfo.inboard;
     char* outboard = tinfo.outboard;
@@ -119,7 +123,6 @@ sequential_game_of_life (char* outboard,
 
     // gens_max is the maximum number of generations
 
-    const int LDA = nrows;
     int curgen, i, err;
 
     int numThreads = NUM_THREADS;
@@ -135,7 +138,6 @@ sequential_game_of_life (char* outboard,
 	    tinfo[i].start = rowStart;
 	    tinfo[i].end = rowEnd;
 
-	    tinfo[i].LDA = LDA;
 	    tinfo[i].nrows = nrows;
 	    tinfo[i].ncols = ncols;
 
