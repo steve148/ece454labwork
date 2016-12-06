@@ -5,6 +5,9 @@
 #include <string.h>
 #include <pthread.h>
 
+#define NUM_THREADS         8
+#define LOG2_NUM_THREADS    3
+
 /**
  * Swapping the two boards only involves swapping pointers, not
  * copying values.
@@ -182,15 +185,15 @@ threaded_game_of_life (char* outboard,
   int curgen, i, j;
 
   // Set up thread variables
-  int num_threads = 8;
-  pthread_t tid[num_threads];
-  thread_args *tinfo = malloc(num_threads * sizeof(thread_args));
+  int num_threads = NUM_THREADS;
+  pthread_t tid[NUM_THREADS];
+  thread_args *tinfo = malloc(NUM_THREADS * sizeof(thread_args));
 
   init_bitmap(inboard, nrows, ncols);
 
   // Set up thread args
   int start_row = 0;
-  int chunk_size = nrows/num_threads;
+  int chunk_size = nrows >> LOG2_NUM_THREADS;
   int end_row = chunk_size;
   for (i=0; i<num_threads; i++){
     // Set start and end thread args
