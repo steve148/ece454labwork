@@ -71,14 +71,9 @@ load_board_values (FILE* input, const int nrows, const int ncols)
     else {
 	    /* ASCII '0' is not zero; do the conversion */
 	    board[i] = board[i] - '0';
-        if (board[i] == 0x01)
-        {
-          board[i] = board[i] << 4;
-        }
     }
   }
 
-  init_bitmap(board, nrows, ncols);
   return board;
 }
 
@@ -87,34 +82,5 @@ load_board (FILE* input, int* nrows, int* ncols)
 {
   load_dimensions (input, nrows, ncols);
   return load_board_values (input, *nrows, *ncols);
-}
-
-/*****************************************************************************
- * init_bitmap
- * Helper function to notify all neighbours about a cell that's alive
- ****************************************************************************/
-void
-init_bitmap (char * board, const int nrows, const int ncols){
-  int i,j;
-  for (i = 0; i < nrows; i++) {
-    for (j = 0; j< ncols; j++) {
-      const int j_nrows = j * nrows;
-      // If the cell is alive, notify all the other neighbours
-      if (IS_ALIVE(BOARD(board, i, j))) {
-        const int inorth = INORTH(i, nrows);
-        const int isouth = ISOUTH(i, nrows);
-        const int jwest = j ? j_nrows - nrows : (ncols - 1) * nrows;
-        const int jeast = (j != ncols - 1) ? j_nrows + nrows : 0;
-        MY_INCREMENT_NEIGHBOURS (board, inorth, jwest);
-        MY_INCREMENT_NEIGHBOURS (board, inorth, j_nrows);
-        MY_INCREMENT_NEIGHBOURS (board, inorth, jeast);
-        MY_INCREMENT_NEIGHBOURS (board, i, jwest);
-        MY_INCREMENT_NEIGHBOURS (board, i, jeast);
-        MY_INCREMENT_NEIGHBOURS (board, isouth, jwest);
-        MY_INCREMENT_NEIGHBOURS (board, isouth, j_nrows);
-        MY_INCREMENT_NEIGHBOURS (board, isouth, jeast);
-      }
-    }
-  }
 }
 
