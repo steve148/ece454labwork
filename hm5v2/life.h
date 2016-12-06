@@ -27,13 +27,13 @@ sequential_game_of_life (char* outboard,
 			 const int gens_max);
 
 // Function definitions for threaded applications. See life.c for full headers.
-char * threaded_gol(char* outboard, 
+char * threaded_game_of_life(char* outboard, 
     char* inboard,
     const int nrows,
     const int ncols,
     const int gens_max);
-void * gol_worker (void *ptr);
-void  gol_worker_for_row (int i, int ncols, int nrows, char * inboard, char * outboard);
+void * game_of_life_thread (void *ptr);
+void  game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char * outboard);
 
 
 #endif /* _life_h */
