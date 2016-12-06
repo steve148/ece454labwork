@@ -16,6 +16,9 @@
   b2 = temp; \
 } while(0)
 
+#define BOARD( __board, __i, __j )  (__board[(__i) + LDA*(__j)])
+
+
     char*
 sequential_game_of_life (char* outboard, 
         char* inboard,
