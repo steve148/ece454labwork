@@ -23,6 +23,8 @@
 #define NUM_THREADS         8
 #define LOG2_NUM_THREADS    3
 
+// Check for if BOARD element is alive
+#define IS_ALIVE(var) ((var) & (1<<(4)))
 
 typedef struct {
     char* inboard;
@@ -33,6 +35,35 @@ typedef struct {
     int nrows;
     int ncols;
 } thread_args;
+
+// TODO: Parallelize this later, using TM
+void init_bitmap (char* board, const int nrows, const int ncols) {
+    int i, j;
+    thread_args tinfo = *((thread_args *) args);
+
+    for (i = 0; i < nrows; i++)
+    {
+        for (j = 0; j < ncols; j++)
+        {
+            if (IS_ALIVE(BOARD(board, i, j)))
+            {
+                const int inorth = i ? i - 1 : nrows - 1;
+                const int isouth = (i != nrows - 1) ? i + 1 : 0;
+                const int jwest = j ? j - 1 : ncols - 1;
+                const int jeast = (j != ncols - 1) ? j + 1 : 0;
+
+                INCREMENT_AT_COORD(board, inorth, jwest);
+                INCREMENT_AT_COORD(board, inorth, j);
+                INCREMENT_AT_COORD(board, inorth, jeast);
+                INCREMENT_AT_COORD(board, isouth, jwest);
+                INCREMENT_AT_COORD(board, isouth, j);
+                INCREMENT_AT_COORD(board, isouth, jeast);
+                INCREMENT_AT_COORD(board, i, jwest);
+                INCREMENT_AT_COORD(board, i, jeast);
+            }
+        }
+    }
+}
 
 void* parallel_game_of_life (void *args) {
     int i, j;
@@ -47,6 +78,7 @@ void* parallel_game_of_life (void *args) {
 
     char* inboard = tinfo.inboard;
     char* outboard = tinfo.outboard;
+
     /* HINT: you'll be parallelizing these loop(s) by doing a
        geometric decomposition of the output */
     for (j = 0; j < ncols; j++)
@@ -57,17 +89,17 @@ void* parallel_game_of_life (void *args) {
         {
             const int inorth = i ? i - 1 : nrows - 1;//mod (i-1, nrows);
             const int isouth = (i != nrows - 1) ? i + 1 : 0;//mod (i+1, nrows);
-    
-		    const char neighbor_count = 
-		        BOARD (inboard, inorth, jwest) + 
-    		    BOARD (inboard, inorth, j) + 
-	    	    BOARD (inboard, inorth, jeast) + 
-		        BOARD (inboard, i, jwest) +
-		        BOARD (inboard, i, jeast) + 
-		        BOARD (inboard, isouth, jwest) +
-    		    BOARD (inboard, isouth, j) + 
-	    	    BOARD (inboard, isouth, jeast);
-    
+//    
+//		    const char neighbor_count = 
+//		        BOARD (inboard, inorth, jwest) + 
+//    		    BOARD (inboard, inorth, j) + 
+//	    	    BOARD (inboard, inorth, jeast) + 
+//		        BOARD (inboard, i, jwest) +
+//		        BOARD (inboard, i, jeast) + 
+//		        BOARD (inboard, isouth, jwest) +
+//    		    BOARD (inboard, isouth, j) + 
+//	    	    BOARD (inboard, isouth, jeast);
+//    
 		    BOARD(outboard, i, j) = alivep (neighbor_count, BOARD (inboard, i, j));
         }
     }
@@ -110,6 +142,9 @@ sequential_game_of_life (char* outboard,
 	    rowStart = rowEnd;
 	    rowEnd += rowStride;
     }
+
+    init_bitmap(inboard, ncols, nrows);
+    return inboard;
 
     for (curgen = 0; curgen < gens_max; curgen++)
     {
