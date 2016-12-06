@@ -22,14 +22,16 @@
 #define BOARD( __board, __i, __j )  (__board[(__i) + LDA*(__j)])
 
 typedef struct {
-    char * inboard;
-    char * outboard;
+    char* inboard;
+    char* outboard;
     int start;
     int end;
     int LDA;
     int nrows;
     int ncols;
 } thread_args;
+
+pthread_t tid[4];
 
 void* parallel_game_of_life (void *args) {
     int i, j;
@@ -42,32 +44,30 @@ void* parallel_game_of_life (void *args) {
     int ncols = tinfo.ncols;
     int LDA = tinfo.LDA;
 
-    char * inboard = tinfo.inboard;
-    char * outboard = tinfo.outboard;
+    char* inboard = tinfo.inboard;
+    char* outboard = tinfo.outboard;
     /* HINT: you'll be parallelizing these loop(s) by doing a
        geometric decomposition of the output */
-    for (i = start; i < end; i++)
+    for (j = 0; j < ncols; j++)
     {
-        const int inorth = mod (i-1, nrows);
-        const int isouth = mod (i+1, nrows);
-        for (j = 0; j < ncols; j++)
+        const int jwest = mod (j-1, ncols);
+        const int jeast = mod (j+1, ncols); 
+        for (i = start; i < end; i++)
         {
-	    const int jwest = mod (j-1, ncols);
-	    const int jeast = mod (j+1, ncols);
+            const int inorth = mod (i-1, nrows);
+            const int isouth = mod (i+1, nrows);
     
-	    __transaction_atomic {
-		const char neighbor_count = 
-		    BOARD (inboard, inorth, jwest) + 
-		    BOARD (inboard, inorth, j) + 
-		    BOARD (inboard, inorth, jeast) + 
-		    BOARD (inboard, i, jwest) +
-		    BOARD (inboard, i, jeast) + 
-		    BOARD (inboard, isouth, jwest) +
-		    BOARD (inboard, isouth, j) + 
-		    BOARD (inboard, isouth, jeast);
+		    const char neighbor_count = 
+		        BOARD (inboard, inorth, jwest) + 
+    		    BOARD (inboard, inorth, j) + 
+	    	    BOARD (inboard, inorth, jeast) + 
+		        BOARD (inboard, i, jwest) +
+		        BOARD (inboard, i, jeast) + 
+		        BOARD (inboard, isouth, jwest) +
+    		    BOARD (inboard, isouth, j) + 
+	    	    BOARD (inboard, isouth, jeast);
     
-		BOARD(outboard, i, j) = alivep (neighbor_count, BOARD (inboard, i, j));
-	    }
+		    BOARD(outboard, i, j) = alivep (neighbor_count, BOARD (inboard, i, j));
         }
     }
 
@@ -87,11 +87,10 @@ sequential_game_of_life (char* outboard,
     // gens_max is the maximum number of generations
 
     const int LDA = nrows;
-    int curgen, i, j, err;
+    int curgen, i, err;
 
     int numThreads = 4;
-    pthread_t tid[numThreads];
-    thread_args* tinfo[numThreads];
+    thread_args* tinfo[4];
 
     int rowStart = 0;
     int rowStride = nrows / numThreads;
@@ -99,38 +98,41 @@ sequential_game_of_life (char* outboard,
 
     for (i = 0; i < numThreads; i++) 
     {
-	tinfo[i] = (thread_args *) malloc(sizeof(thread_args));
+        tinfo[i] = (thread_args*) malloc(sizeof(thread_args));
+	    tinfo[i]->start = rowStart;
+	    tinfo[i]->end = rowEnd;
 
-	tinfo[i]->start = rowStart;
-	tinfo[i]->end = rowEnd;
-
-	tinfo[i]->LDA = LDA;
-	tinfo[i]->nrows = nrows;
-	tinfo[i]->ncols = ncols;
-	
-	rowStart = rowEnd;
-	rowEnd += rowStride;
+	    tinfo[i]->LDA = LDA;
+	    tinfo[i]->nrows = nrows;
+	    tinfo[i]->ncols = ncols;
+	    
+	    rowStart = rowEnd;
+	    rowEnd += rowStride;
     }
 
     for (curgen = 0; curgen < gens_max; curgen++)
     {
-	for (i = 0; i < numThreads; i++)
-	{
-        tinfo[i]->inboard = inboard;
-        tinfo[i]->outboard = outboard;
-	    err = pthread_create(&tid[i], NULL, &parallel_game_of_life, (void*) tinfo[i]);
-	    if (err != 0) {
-		printf("\nERROR CREATING THREAD: %d\n", err);
+	    for (i = 0; i < numThreads; i++)
+	    {
+            tinfo[i]->inboard = inboard;
+            tinfo[i]->outboard = outboard;
+	        err = pthread_create(&tid[i], NULL, &parallel_game_of_life, (void*) tinfo[i]);
+	        if (err != 0) {
+	    	    printf("\nERROR CREATING THREAD: %d\n", err);
+	        }
 	    }
-	}
 
-	for (i = 0; i < numThreads; i++) 
-    	{
-	    pthread_join(tid[i], NULL);    
+	    for (i = 0; i < numThreads; i++) 
+        {
+	        pthread_join(tid[i], NULL);    
+        }
+
+	    SWAP_BOARDS( outboard, inboard );
+    }
+
+    for (i = 0; i < numThreads; i++) 
+    {
         free(tinfo[i]);
-    	}
-
-	SWAP_BOARDS( outboard, inboard );
     }
     /* 
      * We return the output board, so that we know which one contains
