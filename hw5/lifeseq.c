@@ -35,7 +35,6 @@ void* parallel_game_of_life (void *args) {
     int i, j;
 
     thread_args tinfo = *((thread_args *) args);
-    free(args);
 
     int start = tinfo.start;
     int end = tinfo.end;
@@ -43,9 +42,8 @@ void* parallel_game_of_life (void *args) {
     int ncols = tinfo.ncols;
     int LDA = tinfo.LDA;
 
-    char* inboard = tinfo.inboard;
-    char* outboard = tinfo.outboard;
-
+    char * inboard = tinfo.inboard;
+    char * outboard = tinfo.outboard;
     /* HINT: you'll be parallelizing these loop(s) by doing a
        geometric decomposition of the output */
     for (i = start; i < end; i++)
@@ -93,7 +91,7 @@ sequential_game_of_life (char* outboard,
 
     int numThreads = 4;
     pthread_t tid[numThreads];
-    thread_args *tinfo = malloc(numThreads*sizeof(thread_args));
+    thread_args* tinfo[numThreads];
 
     int rowStart = 0;
     int rowStride = nrows / numThreads;
@@ -101,12 +99,14 @@ sequential_game_of_life (char* outboard,
 
     for (i = 0; i < numThreads; i++) 
     {
-	tinfo[i].start = rowStart;
-	tinfo[i].end = rowEnd;
+	tinfo[i] = (thread_args *) malloc(sizeof(thread_args));
 
-	tinfo[i].LDA = LDA;
-	tinfo[i].nrows = nrows;
-	tinfo[i].ncols = ncols;
+	tinfo[i]->start = rowStart;
+	tinfo[i]->end = rowEnd;
+
+	tinfo[i]->LDA = LDA;
+	tinfo[i]->nrows = nrows;
+	tinfo[i]->ncols = ncols;
 	
 	rowStart = rowEnd;
 	rowEnd += rowStride;
@@ -116,7 +116,9 @@ sequential_game_of_life (char* outboard,
     {
 	for (i = 0; i < numThreads; i++)
 	{
-	    err = pthread_create(&tid[i], NULL, &parallel_game_of_life, (void*) &tinfo[i]);
+        tinfo[i]->inboard = inboard;
+        tinfo[i]->outboard = outboard;
+	    err = pthread_create(&tid[i], NULL, &parallel_game_of_life, (void*) tinfo[i]);
 	    if (err != 0) {
 		printf("\nERROR CREATING THREAD: %d\n", err);
 	    }
@@ -124,7 +126,8 @@ sequential_game_of_life (char* outboard,
 
 	for (i = 0; i < numThreads; i++) 
     	{
-	    pthread_join(&tid[i], NULL);    
+	    pthread_join(tid[i], NULL);    
+        free(tinfo[i]);
     	}
 
 	SWAP_BOARDS( outboard, inboard );
