@@ -50,12 +50,12 @@ void* parallel_game_of_life (void *args) {
        geometric decomposition of the output */
     for (j = 0; j < ncols; j++)
     {
-        const int jwest = mod (j-1, ncols);
-        const int jeast = mod (j+1, ncols); 
+        const int jwest = j ? j - 1 : ncols - 1;//mod (j-1, ncols);
+        const int jeast = (j != ncols - 1) ? j + 1 : 0;//mod (j+1, ncols); 
         for (i = start; i < end; i++)
         {
-            const int inorth = mod (i-1, nrows);
-            const int isouth = mod (i+1, nrows);
+            const int inorth = i ? i - 1 : nrows - 1;//mod (i-1, nrows);
+            const int isouth = (i != nrows - 1) ? i + 1 : 0;//mod (i+1, nrows);
     
 		    const char neighbor_count = 
 		        BOARD (inboard, inorth, jwest) + 
@@ -93,7 +93,7 @@ sequential_game_of_life (char* outboard,
     thread_args* tinfo[4];
 
     int rowStart = 0;
-    int rowStride = nrows / numThreads;
+    int rowStride = nrows >> 2;
     int rowEnd = rowStride;
 
     for (i = 0; i < numThreads; i++) 
@@ -105,7 +105,7 @@ sequential_game_of_life (char* outboard,
 	    tinfo[i]->LDA = LDA;
 	    tinfo[i]->nrows = nrows;
 	    tinfo[i]->ncols = ncols;
-	    
+
 	    rowStart = rowEnd;
 	    rowEnd += rowStride;
     }
