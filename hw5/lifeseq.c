@@ -7,7 +7,9 @@
 #include "util.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <pthread.h>
+#include <assert.h>
 
 /**
  * Swapping the two boards only involves swapping pointers, not
@@ -20,11 +22,9 @@
 } while(0)
 
 #define BOARD( __board, __i, __j )  (__board[(__i) + nrows*(__j)])
+#define MY_BOARD( __board, __i, __j )  (__board[(__i) + (__j)])
 #define NUM_THREADS         8
 #define LOG2_NUM_THREADS    3
-
-// Check for if BOARD element is alive
-#define IS_ALIVE(var) ((var) & (1<<(4)))
 
 typedef struct {
     char* inboard;
@@ -35,40 +35,49 @@ typedef struct {
     int ncols;
 } thread_args;
 
+pthread_mutex_t lock[1024];
+
 // TODO: Parallelize this later, using TM
 // or possibly in-line
 void init_bitmap (char* board, const int nrows, const int ncols) {
     int i, j;
 
+    for (i = 0; i < ncols*nrows; i++)
+    {
+        if (board[i] == (char) 0x01)
+        {
+            board[i] = board[i] << 4;
+        }
+    }
+
     for (i = 0; i < nrows; i++)
     {
         for (j = 0; j < ncols; j++)
         {
-            if (BOARD(board, i, j) == (char) 1)
-            {
-                board[i] = board[i] << 4;
-            }
             if (IS_ALIVE(BOARD(board, i, j)))
             {
-                const int j_nrows = j * nrows;
+                // const int j_nrows = j * nrows;
 
-                const int inorth = i ? i - 1 : nrows - 1;
-                const int isouth = (i != nrows - 1) ? i + 1 : 0;
-                const int jwest = j ? j_nrows - nrows : (ncols - 1) * nrows;
-                const int jeast = (j != ncols - 1) ? j_nrows + nrows : 0;
+                const int inorth = mod(i-1, nrows); //i ? i - 1 : nrows - 1;
+                const int isouth = mod(i+1, nrows); //(i != nrows - 1) ? i + 1 : 0;
+                const int jwest = mod(j-1, ncols); //j ? j_nrows - nrows : (ncols - 1) * nrows;
+                const int jeast = mod(j+1, ncols); //(j != ncols - 1) ? j_nrows + nrows : 0;
 
+                pthread_mutex_lock(&lock[0]);
                 INCREMENT_AT_COORD(board, inorth, jwest);
-                INCREMENT_AT_COORD(board, inorth, j_nrows);
+                INCREMENT_AT_COORD(board, inorth, j);//j_nrows);
                 INCREMENT_AT_COORD(board, inorth, jeast);
                 INCREMENT_AT_COORD(board, isouth, jwest);
-                INCREMENT_AT_COORD(board, isouth, j_nrows);
+                INCREMENT_AT_COORD(board, isouth, j);//j_nrows);
                 INCREMENT_AT_COORD(board, isouth, jeast);
                 INCREMENT_AT_COORD(board, i, jwest);
                 INCREMENT_AT_COORD(board, i, jeast);
+                pthread_mutex_unlock(&lock[0]);
             }
         }
     }
 }
+
 
 void* parallel_game_of_life (void *args) {
     int i, j;
@@ -87,24 +96,98 @@ void* parallel_game_of_life (void *args) {
        geometric decomposition of the output */
     for (j = 0; j < ncols; j++)
     {
-        const int jwest = j ? j - 1 : ncols - 1;//mod (j-1, ncols);
-        const int jeast = (j != ncols - 1) ? j + 1 : 0;//mod (j+1, ncols); 
+        // const int j_nrows = j*nrows;
+        // const int jwest = j ? j_nrows - nrows: (ncols - 1) * nrows;
+        // const int jeast = (j != ncols - 1) ? j_nrows + nrows : 0;
+
         for (i = start; i < end; i++)
         {
-            const int inorth = i ? i - 1 : nrows - 1;//mod (i-1, nrows);
-            const int isouth = (i != nrows - 1) ? i + 1 : 0;//mod (i+1, nrows);
+            // char cell = MY_BOARD(inboard,i,j_nrows);
+            char cell = BOARD(inboard,i,j);
     
-		    const char neighbor_count = 
-		        BOARD (inboard, inorth, jwest) + 
-        		BOARD (inboard, inorth, j) + 
-	    	        BOARD (inboard, inorth, jeast) + 
-		        BOARD (inboard, i, jwest) +
-		        BOARD (inboard, i, jeast) + 
-		        BOARD (inboard, isouth, jwest) +
-    		        BOARD (inboard, isouth, j) + 
-	    	        BOARD (inboard, isouth, jeast);
-    
-		    BOARD(outboard, i, j) = alivep (neighbor_count, BOARD (inboard, i, j));
+            if (!IS_ALIVE(cell))
+            {
+                if (cell == (char) 0x3) {
+                    // const int inorth = i ? i - 1 : nrows - 1;//mod (i-1, nrows);
+                    // const int isouth = (i != nrows - 1) ? i + 1 : 0;//mod (i+1, nrows);
+
+                    SET_ALIVE(BOARD(outboard, i, j));
+
+                    // const int j_nrows = j * nrows;
+
+                    const int inorth = mod(i-1, nrows); //i ? i - 1 : nrows - 1;
+                    const int isouth = mod(i+1, nrows); //(i != nrows - 1) ? i + 1 : 0;
+                    const int jwest = mod(j-1, ncols); //j ? j_nrows - nrows : (ncols - 1) * nrows;
+                    const int jeast = mod(j+1, ncols); //(j != ncols - 1) ? j_nrows + nrows : 0;
+
+                    pthread_mutex_lock(&lock[0]);
+                    INCREMENT_AT_COORD(outboard, inorth, jwest);
+                    INCREMENT_AT_COORD(outboard, inorth, j);//j_nrows);
+                    INCREMENT_AT_COORD(outboard, inorth, jeast);
+                    INCREMENT_AT_COORD(outboard, isouth, jwest);
+                    INCREMENT_AT_COORD(outboard, isouth, j);//j_nrows);
+                    INCREMENT_AT_COORD(outboard, isouth, jeast);
+                    INCREMENT_AT_COORD(outboard, i, jwest);
+                    INCREMENT_AT_COORD(outboard, i, jeast);
+                    pthread_mutex_unlock(&lock[0]);
+                    
+                    //assert(i + jeast == i + mod(j + 1, ncols) * nrows);
+                    //assert(i + jwest == i + mod(j - 1, ncols) * nrows);
+
+                    //pthread_mutex_lock(&lock[0]);
+                    //INCREMENT_AT_COORD(outboard, inorth, jwest);
+                    //INCREMENT_AT_COORD(outboard, inorth, j_nrows);
+                    //INCREMENT_AT_COORD(outboard, inorth, jeast);
+
+                    //INCREMENT_AT_COORD(outboard, isouth, jwest);
+                    //INCREMENT_AT_COORD(outboard, isouth, j_nrows);
+                    //INCREMENT_AT_COORD(outboard, isouth, jeast);
+
+                    //INCREMENT_AT_COORD(outboard, i, jwest);
+                    //INCREMENT_AT_COORD(outboard, i, jeast);
+                    //pthread_mutex_unlock(&lock[0]);
+                }
+            }
+            else
+            {
+                if (cell <= (char) 0x11 || cell >= (char) 0x14) {
+                    // const int inorth = i ? i - 1 : nrows - 1;//mod (i-1, nrows);
+                    // const int isouth = (i != nrows - 1) ? i + 1 : 0;//mod (i+1, nrows);
+
+                    SET_DEAD(BOARD(outboard, i, j));
+
+                    // const int j_nrows = j * nrows;
+
+                    const int inorth = mod(i-1, nrows); //i ? i - 1 : nrows - 1;
+                    const int isouth = mod(i+1, nrows); //(i != nrows - 1) ? i + 1 : 0;
+                    const int jwest = mod(j-1, ncols); //j ? j_nrows - nrows : (ncols - 1) * nrows;
+                    const int jeast = mod(j+1, ncols); //(j != ncols - 1) ? j_nrows + nrows : 0;
+
+                    pthread_mutex_lock(&lock[0]);
+                    DECREMENT_AT_COORD(outboard, inorth, jwest);
+                    DECREMENT_AT_COORD(outboard, inorth, j);//j_nrows);
+                    DECREMENT_AT_COORD(outboard, inorth, jeast);
+                    DECREMENT_AT_COORD(outboard, isouth, jwest);
+                    DECREMENT_AT_COORD(outboard, isouth, j);//j_nrows);
+                    DECREMENT_AT_COORD(outboard, isouth, jeast);
+                    DECREMENT_AT_COORD(outboard, i, jwest);
+                    DECREMENT_AT_COORD(outboard, i, jeast);
+                    pthread_mutex_unlock(&lock[0]);
+                    
+                    // pthread_mutex_lock(&lock[0]);
+                    // DECREMENT_AT_COORD(outboard, inorth, jwest);
+                    // DECREMENT_AT_COORD(outboard, inorth, j_nrows);
+                    // DECREMENT_AT_COORD(outboard, inorth, jeast);
+
+                    // DECREMENT_AT_COORD(outboard, isouth, jwest);
+                    // DECREMENT_AT_COORD(outboard, isouth, j_nrows);
+                    // DECREMENT_AT_COORD(outboard, isouth, jeast);
+
+                    // DECREMENT_AT_COORD(outboard, i, jwest);
+                    // DECREMENT_AT_COORD(outboard, i, jeast);
+                    // pthread_mutex_unlock(&lock[0]);
+                }
+            }
         }
     }
 
@@ -129,9 +212,14 @@ sequential_game_of_life (char* outboard,
     pthread_t tid[NUM_THREADS];
     thread_args* tinfo = (thread_args *)malloc(numThreads*sizeof(thread_args));
 
+    init_bitmap(inboard, ncols, nrows);
+
+    for (i = 0; i < 1024; i++)
+      pthread_mutex_init(&lock[i],NULL);
+
     int rowStart = 0;
     int rowStride = nrows >> LOG2_NUM_THREADS;
-    int rowEnd = rowStride;
+    int rowEnd = rowStride - 1;
 
     for (i = 0; i < numThreads; i++) 
     {
@@ -145,11 +233,9 @@ sequential_game_of_life (char* outboard,
 	    rowEnd += rowStride;
     }
 
-    init_bitmap(inboard, ncols, nrows);
-    return inboard;
-
     for (curgen = 0; curgen < gens_max; curgen++)
     {
+        memmove (outboard, inboard, nrows * ncols * sizeof (char));
 	    for (i = 0; i < numThreads; i++)
 	    {
             tinfo[i].inboard = inboard;
@@ -176,6 +262,12 @@ sequential_game_of_life (char* outboard,
      * Just be careful when you free() the two boards, so that you don't
      * free the same one twice!!! 
      */
+    
+    for (i = 0; i < ncols*nrows; i++)
+    {
+        inboard[i] >>= 4;
+    }
+
     return inboard;
 }
 

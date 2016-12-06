@@ -1,8 +1,13 @@
 #ifndef _util_h
 #define _util_h
 
-#define INCREMENT_AT_COORD(_b, _i, _j) (_b[_i + _j]++)
-#define DECREMENT_AT_COORD(_b, _i, _j) (_b[_i + _j]--)
+// Check for if BOARD element is alive
+#define IS_ALIVE(var)   ((var) & (1<<(4)))
+#define SET_ALIVE(var)  (var |= (1 << (4)))
+#define SET_DEAD(var)   (var &= ~(1 << (4)))
+
+#define INCREMENT_AT_COORD(__b, __i, __j) (__b[(__i) + nrows*(__j)]++)
+#define DECREMENT_AT_COORD(__b, __i, __j) (__b[(__i) + nrows*(__j)]--)
 
 /**
  * C's mod ('%') operator is mathematically correct, but it may return
