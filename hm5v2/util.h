@@ -28,17 +28,22 @@
 #define MY_INCREMENT_NEIGHBOURS(__board, __i, __j )  (__board[(__i) + (__j)] ++ )
 #define MY_DECREMENT_NEIGHBOURS(__board, __i, __j )  (__board[(__i) + (__j)] -- )
 
+//
+#define INORTH(_i, _nrows) (_i ? _i - 1 : _nrows - 1)
+#define ISOUTH(_i, _nrows) ((_i != _nrows - 1) ? _i + 1 : 0)
+#define JWEST(_j, _ncols) (j ? j - 1 : ncols - 1)
+#define JEAST(_j, _ncols) ((j != ncols - 1) ? j + 1 : 0)
+
 /**
- * C's mod ('%') operator is mathematically correct, but it may return
- * a negative remainder even when both inputs are nonnegative.  This
- * function always returns a nonnegative remainder (x mod m), as long
- * as x and m are both positive.  This is helpful for computing
- * toroidal boundary conditions.
+ * C's mod ('%') operator is mathematically correct, but it may return a
+ * negative remainder even when both inputs are nonnegative. This function
+ * always returns a nonnegative remainder (x mod m), as long as x and m are
+ * both positive. This is helpful for computing toroidal boundary conditions.
  */
-static inline int 
+static inline int
 mod (int x, int m)
 {
-  return (x < 0) ? ((x % m) + m) : (x % m);
+	return (x < 0) ? ((x % m) + m) : (x % m);
 }
 
 /**

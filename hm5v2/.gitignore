@@ -1,0 +1,7 @@
+*.o
+gmon.out
+initboard
+gol
+outputs/1k.pbm
+*.swp
+.nfs*

@@ -1,7 +1,7 @@
 /*****************************************************************************
  * life.c
- * Freddy Chen 997363124
- * Anthony Alayo 997487401
+ * Lennox Stevenson 999585667
+ * Rahul C #########
  * 
  * Parallelized and optimized implementation of the game of life resides here.
  * We optimized the Game of Life by using threads and a change in the way 
@@ -42,27 +42,27 @@ game_of_life (char* outboard,
     const int ncols,
     const int gens_max)
 {
-  return threaded_gol (outboard, inboard, nrows, ncols, gens_max);
+  return threaded_game_of_life (outboard, inboard, nrows, ncols, gens_max);
 }
 
 /*****************************************************************************
- * Package that we use to pass parameters to gol worker threads
+ * Arguements that we use to pass parameters to gol worker threads
  ****************************************************************************/
-typedef struct Package {
+typedef struct thread_args {
   char * inboard;
   char * outboard;
   int nrows;
   int ncols;
-  int start_row;
-  int end_row;
-} Package;
+  int start;
+  int end;
+} thread_args;
 
 /*****************************************************************************
  * threaded_gol
  * Threaded version of the game of life
  ****************************************************************************/
   char*
-threaded_gol (char* outboard, 
+threaded_game_of_life (char* outboard, 
     char* inboard,
     const int nrows,
     const int ncols,
@@ -70,44 +70,44 @@ threaded_gol (char* outboard,
 {
   int curgen, i, j;
 
-  // Set up threading variables
+  // Set up thread variables
   int num_threads = 8;
   pthread_t tid[num_threads];
-  Package *packages = malloc(num_threads*sizeof(Package));
+  thread_args *tinfo = malloc(num_threads * sizeof(thread_args));
 
-  // Set up package for threads
+  // Set up thread args
   int start_row = 0;
   int chunk_size = nrows/num_threads;
   int end_row = chunk_size;
   for (i=0; i<num_threads; i++){
-    packages[i].start_row = start_row+1;
-    packages[i].end_row = end_row-1;
+    // Set start and end thread args
+    tinfo[i].start = start_row+1;
+    tinfo[i].end = end_row-1;
 
-    // Update next start row and end row
+    // Update for next start and end rows
     start_row = end_row;
     end_row = end_row + chunk_size;
-
-    // Always need these
-    packages[i].nrows = nrows;
-    packages[i].ncols = ncols;
   }
 
+  // Iterate through generations 
   for (curgen = 0; curgen < gens_max; curgen++) {
-    // Make sure the outboard and inboard is the same
+    // Set outboard to be inboard just in case
     memmove (outboard, inboard, nrows * ncols * sizeof (char));
 
-    // Do the first and last lines of each chunk so that threads don't
-    // overlap writing to the outboard
+    // Before starting thread jobs, do first and last line of each chunk so
+    // so the threads do not overlap while writing to outboard.
     for (i = 0; i < num_threads; i++) {
-      gol_worker_for_row( packages[i].start_row-1, ncols, nrows, inboard, outboard);
-      gol_worker_for_row( packages[i].end_row, ncols, nrows, inboard, outboard);
+      game_of_life_single_row(tinfo[i].start - 1, ncols, nrows, inboard, outboard);
+      game_of_life_single_row(tinfo[i].end, ncols, nrows, inboard, outboard);
     }
 
-    // Do the rest of the chunk now
+    // Start threads
     for (i = 0; i < num_threads; i++) {
-      packages[i].inboard = inboard;
-      packages[i].outboard = outboard;
-      pthread_create(&tid[i], NULL, gol_worker, (void*) &packages[i]);
+      tinfo[i].nrows = nrows;
+      tinfo[i].ncols = ncols;
+      tinfo[i].inboard = inboard;
+      tinfo[i].outboard = outboard;
+      pthread_create(&tid[i], NULL, game_of_life_thread, (void*) &tinfo[i]);
     }
 
     // Wait for threads to finish
@@ -126,26 +126,18 @@ threaded_gol (char* outboard,
     }
   }
 
-  free(packages);
+  free(tinfo);
   return inboard;
 }
 
-/*****************************************************************************
- * gol_worker
- * Function for threads to run and update the inboard chunk size's states.
- * The cell's state is updated according to how many living neighbours it has.
- *
- * If a cell state changes, its neighbouring cells will be notified of an
- * updated count.
- ****************************************************************************/
-void * gol_worker (void *ptr) {
-  Package *p = (Package *) ptr;
-  int start_row = p->start_row;
-  int end_row = p->end_row;
-  int ncols = p->ncols;
-  int nrows = p->nrows;
-  char * inboard = p-> inboard;
-  char * outboard = p-> outboard;
+void * game_of_life_thread (void *ptr) {
+  thread_args *ta = (thread_args *) ptr;
+  int start = ta->start;
+  int end = ta->end;
+  int ncols = ta->ncols;
+  int nrows = ta->nrows;
+  char * inboard = ta->inboard;
+  char * outboard = ta->outboard;
   int i, j;
 
   for (j = 0; j < ncols; j++) {
@@ -201,11 +193,7 @@ void * gol_worker (void *ptr) {
 }
 
 
-/*****************************************************************************
- * gol_worker_for_row
- * Special case of the above function in case we need to process a row by itself
- ****************************************************************************/
-void gol_worker_for_row (int i, int ncols, int nrows, char * inboard, char * outboard) {
+void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char * outboard) {
   int j;
   for (j = 0; j < ncols; j++) {
     const int j_nrows = j * nrows;
@@ -216,6 +204,20 @@ void gol_worker_for_row (int i, int ncols, int nrows, char * inboard, char * out
         SET_ALIVE(BOARD(outboard,i,j));
 
         // Notify neighbours of spawn
+<<<<<<< HEAD
+        const int inorth = INORTH(i, nrows);
+        const int isouth = ISOUTH(i, nrows);
+        const int jwest = JWEST(j, ncols);
+        const int jeast = JEAST(j, ncols);
+        INCREMENT_NEIGHBOURS (outboard, inorth, jwest);
+        INCREMENT_NEIGHBOURS (outboard, inorth, j);
+        INCREMENT_NEIGHBOURS (outboard, inorth, jeast);
+        INCREMENT_NEIGHBOURS (outboard, i, jwest);
+        INCREMENT_NEIGHBOURS (outboard, i, jeast);
+        INCREMENT_NEIGHBOURS (outboard, isouth, jwest);
+        INCREMENT_NEIGHBOURS (outboard, isouth, j);
+        INCREMENT_NEIGHBOURS (outboard, isouth, jeast);
+=======
         const int inorth = mod (i-1, nrows);
         const int isouth = mod (i+1, nrows);
         const int jwest = j ? j_nrows - nrows : (ncols - 1) * nrows;
@@ -229,6 +231,7 @@ void gol_worker_for_row (int i, int ncols, int nrows, char * inboard, char * out
         MY_INCREMENT_NEIGHBOURS (outboard, isouth, jwest);
         MY_INCREMENT_NEIGHBOURS (outboard, isouth, j_nrows);
         MY_INCREMENT_NEIGHBOURS (outboard, isouth, jeast);
+>>>>>>> 89b2695e1b84204d4bc3b7e3f1818fa31daebe99
       }
     } else {
       // Check if the cell needs to die
@@ -236,6 +239,20 @@ void gol_worker_for_row (int i, int ncols, int nrows, char * inboard, char * out
         SET_DEAD(BOARD(outboard,i,j));
 
         // Notify neighbours of death
+<<<<<<< HEAD
+        const int inorth = INORTH(i, nrows);
+        const int isouth = ISOUTH(i, nrows);
+        const int jwest = JWEST(j, ncols);
+        const int jeast = JEAST(j, ncols);
+        DECREMENT_NEIGHBOURS (outboard, inorth, jwest);
+        DECREMENT_NEIGHBOURS (outboard, inorth, j);
+        DECREMENT_NEIGHBOURS (outboard, inorth, jeast);
+        DECREMENT_NEIGHBOURS (outboard, i, jwest);
+        DECREMENT_NEIGHBOURS (outboard, i, jeast);
+        DECREMENT_NEIGHBOURS (outboard, isouth, jwest);
+        DECREMENT_NEIGHBOURS (outboard, isouth, j);
+        DECREMENT_NEIGHBOURS (outboard, isouth, jeast);
+=======
         const int inorth = mod (i-1, nrows);
         const int isouth = mod (i+1, nrows);
         const int jwest = j ? j_nrows - nrows : (ncols - 1) * nrows;
@@ -249,6 +266,7 @@ void gol_worker_for_row (int i, int ncols, int nrows, char * inboard, char * out
         MY_DECREMENT_NEIGHBOURS (outboard, isouth, jwest);
         MY_DECREMENT_NEIGHBOURS (outboard, isouth, j_nrows);
         MY_DECREMENT_NEIGHBOURS (outboard, isouth, jeast);
+>>>>>>> 89b2695e1b84204d4bc3b7e3f1818fa31daebe99
       }
     }
   }
