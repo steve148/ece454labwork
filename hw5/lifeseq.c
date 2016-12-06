@@ -31,8 +31,6 @@ typedef struct {
     int ncols;
 } thread_args;
 
-pthread_t tid[4];
-
 void* parallel_game_of_life (void *args) {
     int i, j;
 
@@ -90,21 +88,21 @@ sequential_game_of_life (char* outboard,
     int curgen, i, err;
 
     int numThreads = 4;
-    thread_args* tinfo[4];
+    pthread_t tid[4];
+    thread_args* tinfo = (thread_args *)malloc(numThreads*sizeof(thread_args));
 
     int rowStart = 0;
-    int rowStride = nrows / numThreads;
+    int rowStride = nrows >> 2;
     int rowEnd = rowStride;
 
     for (i = 0; i < numThreads; i++) 
     {
-        tinfo[i] = (thread_args*) malloc(sizeof(thread_args));
-	    tinfo[i]->start = rowStart;
-	    tinfo[i]->end = rowEnd;
+	    tinfo[i].start = rowStart;
+	    tinfo[i].end = rowEnd;
 
-	    tinfo[i]->LDA = LDA;
-	    tinfo[i]->nrows = nrows;
-	    tinfo[i]->ncols = ncols;
+	    tinfo[i].LDA = LDA;
+	    tinfo[i].nrows = nrows;
+	    tinfo[i].ncols = ncols;
 	    
 	    rowStart = rowEnd;
 	    rowEnd += rowStride;
@@ -114,9 +112,9 @@ sequential_game_of_life (char* outboard,
     {
 	    for (i = 0; i < numThreads; i++)
 	    {
-            tinfo[i]->inboard = inboard;
-            tinfo[i]->outboard = outboard;
-	        err = pthread_create(&tid[i], NULL, &parallel_game_of_life, (void*) tinfo[i]);
+            tinfo[i].inboard = inboard;
+            tinfo[i].outboard = outboard;
+	        err = pthread_create(&tid[i], NULL, &parallel_game_of_life, (void*) &tinfo[i]);
 	        if (err != 0) {
 	    	    printf("\nERROR CREATING THREAD: %d\n", err);
 	        }
@@ -130,10 +128,8 @@ sequential_game_of_life (char* outboard,
 	    SWAP_BOARDS( outboard, inboard );
     }
 
-    for (i = 0; i < numThreads; i++) 
-    {
-        free(tinfo[i]);
-    }
+    free(tinfo);
+
     /* 
      * We return the output board, so that we know which one contains
      * the final result (because we've been swapping boards around).
