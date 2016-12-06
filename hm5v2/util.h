@@ -13,6 +13,7 @@
 
 //#define BOARD( __board, __i, __j )  (__board[(__i) + LDA*(__j)])
 #define BOARD( __board, __i, __j )  (__board[(__i) + nrows*(__j)])
+#define MY_BOARD( __board, __i, __j )  (__board[(__i) + (__j)])
 
 // Check if a cell is alive or dead
 #define IS_ALIVE(var) ((var) & (1<<(4)))
@@ -24,6 +25,8 @@
 // Increase or decrease neighbour counts in the bit representation of cells
 #define INCREMENT_NEIGHBOURS(__board, __i, __j )  (__board[(__i) + nrows*(__j)] ++ )
 #define DECREMENT_NEIGHBOURS(__board, __i, __j )  (__board[(__i) + nrows*(__j)] -- )
+#define MY_INCREMENT_NEIGHBOURS(__board, __i, __j )  (__board[(__i) + (__j)] ++ )
+#define MY_DECREMENT_NEIGHBOURS(__board, __i, __j )  (__board[(__i) + (__j)] -- )
 
 /**
  * C's mod ('%') operator is mathematically correct, but it may return
