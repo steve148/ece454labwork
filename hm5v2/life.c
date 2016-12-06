@@ -204,22 +204,8 @@ void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char 
         SET_ALIVE(BOARD(outboard,i,j));
 
         // Notify neighbours of spawn
-<<<<<<< HEAD
         const int inorth = INORTH(i, nrows);
         const int isouth = ISOUTH(i, nrows);
-        const int jwest = JWEST(j, ncols);
-        const int jeast = JEAST(j, ncols);
-        INCREMENT_NEIGHBOURS (outboard, inorth, jwest);
-        INCREMENT_NEIGHBOURS (outboard, inorth, j);
-        INCREMENT_NEIGHBOURS (outboard, inorth, jeast);
-        INCREMENT_NEIGHBOURS (outboard, i, jwest);
-        INCREMENT_NEIGHBOURS (outboard, i, jeast);
-        INCREMENT_NEIGHBOURS (outboard, isouth, jwest);
-        INCREMENT_NEIGHBOURS (outboard, isouth, j);
-        INCREMENT_NEIGHBOURS (outboard, isouth, jeast);
-=======
-        const int inorth = mod (i-1, nrows);
-        const int isouth = mod (i+1, nrows);
         const int jwest = j ? j_nrows - nrows : (ncols - 1) * nrows;
         const int jeast = (j != ncols - 1) ? j_nrows + nrows : 0;
 
@@ -231,7 +217,6 @@ void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char 
         MY_INCREMENT_NEIGHBOURS (outboard, isouth, jwest);
         MY_INCREMENT_NEIGHBOURS (outboard, isouth, j_nrows);
         MY_INCREMENT_NEIGHBOURS (outboard, isouth, jeast);
->>>>>>> 89b2695e1b84204d4bc3b7e3f1818fa31daebe99
       }
     } else {
       // Check if the cell needs to die
@@ -239,22 +224,8 @@ void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char 
         SET_DEAD(BOARD(outboard,i,j));
 
         // Notify neighbours of death
-<<<<<<< HEAD
         const int inorth = INORTH(i, nrows);
         const int isouth = ISOUTH(i, nrows);
-        const int jwest = JWEST(j, ncols);
-        const int jeast = JEAST(j, ncols);
-        DECREMENT_NEIGHBOURS (outboard, inorth, jwest);
-        DECREMENT_NEIGHBOURS (outboard, inorth, j);
-        DECREMENT_NEIGHBOURS (outboard, inorth, jeast);
-        DECREMENT_NEIGHBOURS (outboard, i, jwest);
-        DECREMENT_NEIGHBOURS (outboard, i, jeast);
-        DECREMENT_NEIGHBOURS (outboard, isouth, jwest);
-        DECREMENT_NEIGHBOURS (outboard, isouth, j);
-        DECREMENT_NEIGHBOURS (outboard, isouth, jeast);
-=======
-        const int inorth = mod (i-1, nrows);
-        const int isouth = mod (i+1, nrows);
         const int jwest = j ? j_nrows - nrows : (ncols - 1) * nrows;
         const int jeast = (j != ncols - 1) ? j_nrows + nrows : 0;
 
@@ -266,7 +237,6 @@ void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char 
         MY_DECREMENT_NEIGHBOURS (outboard, isouth, jwest);
         MY_DECREMENT_NEIGHBOURS (outboard, isouth, j_nrows);
         MY_DECREMENT_NEIGHBOURS (outboard, isouth, jeast);
->>>>>>> 89b2695e1b84204d4bc3b7e3f1818fa31daebe99
       }
     }
   }
