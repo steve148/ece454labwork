@@ -1,8 +1,8 @@
 #ifndef _util_h
 #define _util_h
 
-#define INCREMENT_AT_COORD(_b, _i, _j) (_b[_i + nrows * _j]++)
-#define DECREMENT_AT_COORD(_b, _i, _j) (_b[_i + nrows * _j]--)
+#define INCREMENT_AT_COORD(_b, _i, _j) (_b[_i + _j]++)
+#define DECREMENT_AT_COORD(_b, _i, _j) (_b[_i + _j]--)
 
 /**
  * C's mod ('%') operator is mathematically correct, but it may return
