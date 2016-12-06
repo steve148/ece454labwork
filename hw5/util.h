@@ -33,4 +33,28 @@ alivep (char count, char state)
     (state && (count >= 2) && (count <= 3));
 }
 
+static inline void
+tell_neighbors_alive(board, i, j, inorth, isouth, jeast, jwest) {
+	INCREMENET_AT_COORD(board, inorth, jwest);
+	INCREMENET_AT_COORD(board, inorth, j);
+	INCREMENET_AT_COORD(board, inorth, jeast);
+	INCREMENET_AT_COORD(board, isouth, jwest);
+	INCREMENET_AT_COORD(board, isouth, j);
+	INCREMENET_AT_COORD(board, isouth, jeast);
+	INCREMENET_AT_COORD(board, i, jwest);
+	INCREMENET_AT_COORD(board, i, jeast);
+}
+
+static inline void
+tell_neighbors_dead(board, i, j, inorth, isouth, jeast, jwest) {
+	DECREMENT_AT_COORD(board, inorth, jwest);
+	DECREMENT_AT_COORD(board, inorth, j);
+	DECREMENT_AT_COORD(board, inorth, jeast);
+	DECREMENT_AT_COORD(board, isouth, jwest);
+	DECREMENT_AT_COORD(board, isouth, j);
+	DECREMENT_AT_COORD(board, isouth, jeast);
+	DECREMENT_AT_COORD(board, i, jwest);
+	DECREMENT_AT_COORD(board, i, jeast);
+}
+
 #endif /* _util_h */
