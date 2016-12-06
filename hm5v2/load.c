@@ -100,10 +100,10 @@ init_neighbour_cnts (char * board, const int nrows, const int ncols){
     for (j = 0; j< ncols; j++) {
       // If the cell is alive, notify all the other neighbours
       if (IS_ALIVE(BOARD(board, i, j))) {
-        const int inorth = mod (i-1, nrows);
-        const int isouth = mod (i+1, nrows);
-        const int jwest = mod (j-1, ncols);
-        const int jeast = mod (j+1, ncols);
+        const int inorth = INORTH(i, nrows);
+        const int isouth = ISOUTH(i, nrows);
+        const int jwest = JWEST(j, ncols);
+        const int jeast = JEAST(j, ncols);
         INCREMENT_NEIGHBOURS (board, inorth, jwest);
         INCREMENT_NEIGHBOURS (board, inorth, j);
         INCREMENT_NEIGHBOURS (board, inorth, jeast);

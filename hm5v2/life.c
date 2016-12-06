@@ -1,7 +1,7 @@
 /*****************************************************************************
  * life.c
- * Freddy Chen 997363124
- * Anthony Alayo 997487401
+ * Lennox Stevenson 999585667
+ * Rahul C #########
  * 
  * Parallelized and optimized implementation of the game of life resides here.
  * We optimized the Game of Life by using threads and a change in the way 
@@ -46,16 +46,16 @@ game_of_life (char* outboard,
 }
 
 /*****************************************************************************
- * Package that we use to pass parameters to gol worker threads
+ * Arguements that we use to pass parameters to gol worker threads
  ****************************************************************************/
-typedef struct Package {
+typedef struct thread_args {
   char * inboard;
   char * outboard;
   int nrows;
   int ncols;
-  int start_row;
-  int end_row;
-} Package;
+  int start;
+  int end;
+} thread_args;
 
 /*****************************************************************************
  * threaded_gol
@@ -71,25 +71,25 @@ threaded_gol (char* outboard,
   int curgen, i, j;
 
   // Set up threading variables
-  int num_threads = 4;
+  int num_threads = 8;
   pthread_t tid[num_threads];
-  Package *packages = malloc(num_threads*sizeof(Package));
+  thread_args *tinfo = malloc(num_threads * sizeof(thread_args));
 
   // Set up package for threads
   int start_row = 0;
   int chunk_size = nrows/num_threads;
   int end_row = chunk_size;
   for (i=0; i<num_threads; i++){
-    packages[i].start_row = start_row+1;
-    packages[i].end_row = end_row-1;
+    tinfo[i].start = start_row+1;
+    tinfo[i].end = end_row-1;
 
     // Update next start row and end row
     start_row = end_row;
     end_row = end_row + chunk_size;
 
     // Always need these
-    packages[i].nrows = nrows;
-    packages[i].ncols = ncols;
+    tinfo[i].nrows = nrows;
+    tinfo[i].ncols = ncols;
   }
 
   for (curgen = 0; curgen < gens_max; curgen++) {
@@ -99,15 +99,15 @@ threaded_gol (char* outboard,
     // Do the first and last lines of each chunk so that threads don't
     // overlap writing to the outboard
     for (i = 0; i < num_threads; i++) {
-      gol_worker_for_row( packages[i].start_row-1, ncols, nrows, inboard, outboard);
-      gol_worker_for_row( packages[i].end_row, ncols, nrows, inboard, outboard);
+      gol_worker_for_row( tinfo[i].start - 1, ncols, nrows, inboard, outboard);
+      gol_worker_for_row( tinfo[i].end, ncols, nrows, inboard, outboard);
     }
 
     // Do the rest of the chunk now
     for (i = 0; i < num_threads; i++) {
-      packages[i].inboard = inboard;
-      packages[i].outboard = outboard;
-      pthread_create(&tid[i], NULL, gol_worker, (void*) &packages[i]);
+      tinfo[i].inboard = inboard;
+      tinfo[i].outboard = outboard;
+      pthread_create(&tid[i], NULL, gol_worker, (void*) &tinfo[i]);
     }
 
     // Wait for threads to finish
@@ -126,7 +126,7 @@ threaded_gol (char* outboard,
     }
   }
 
-  free(packages);
+  free(tinfo);
   return inboard;
 }
 
@@ -139,17 +139,17 @@ threaded_gol (char* outboard,
  * updated count.
  ****************************************************************************/
 void * gol_worker (void *ptr) {
-  Package *p = (Package *) ptr;
-  int start_row = p->start_row;
-  int end_row = p->end_row;
-  int ncols = p->ncols;
-  int nrows = p->nrows;
-  char * inboard = p-> inboard;
-  char * outboard = p-> outboard;
+  thread_args *ta = (thread_args *) ptr;
+  int start = ta->start;
+  int end = ta->end;
+  int ncols = ta->ncols;
+  int nrows = ta->nrows;
+  char * inboard = ta->inboard;
+  char * outboard = ta->outboard;
   int i, j;
 
   for (j = 0; j < ncols; j++) {
-    for (i = start_row; i < end_row; i++) {
+    for (i = start; i < end; i++) {
       char cell = BOARD(inboard,i,j);
       // Check if the cell can come to life
       if (!IS_ALIVE(cell)) {
@@ -157,10 +157,10 @@ void * gol_worker (void *ptr) {
           SET_ALIVE(BOARD(outboard,i,j));
 
           // Notify neighbours of spawn
-          const int inorth = mod (i-1, nrows);
-          const int isouth = mod (i+1, nrows);
-          const int jwest = mod (j-1, ncols);
-          const int jeast = mod (j+1, ncols);
+          const int inorth = INORTH(i, nrows);
+          const int isouth = ISOUTH(i, nrows);
+          const int jwest = JWEST(j, ncols);
+          const int jeast = JEAST(j, ncols);
           INCREMENT_NEIGHBOURS (outboard, inorth, jwest);
           INCREMENT_NEIGHBOURS (outboard, inorth, j);
           INCREMENT_NEIGHBOURS (outboard, inorth, jeast);
@@ -176,10 +176,10 @@ void * gol_worker (void *ptr) {
           SET_DEAD(BOARD(outboard,i,j));
 
           // Notify neighbours of death
-          const int inorth = mod (i-1, nrows);
-          const int isouth = mod (i+1, nrows);
-          const int jwest = mod (j-1, ncols);
-          const int jeast = mod (j+1, ncols);
+          const int inorth = INORTH(i, nrows);
+          const int isouth = ISOUTH(i, nrows);
+          const int jwest = JWEST(j, ncols);
+          const int jeast = JEAST(j, ncols);
           DECREMENT_NEIGHBOURS (outboard, inorth, jwest);
           DECREMENT_NEIGHBOURS (outboard, inorth, j);
           DECREMENT_NEIGHBOURS (outboard, inorth, jeast);
@@ -211,10 +211,10 @@ void gol_worker_for_row (int i, int ncols, int nrows, char * inboard, char * out
         SET_ALIVE(BOARD(outboard,i,j));
 
         // Notify neighbours of spawn
-        const int inorth = mod (i-1, nrows);
-        const int isouth = mod (i+1, nrows);
-        const int jwest = mod (j-1, ncols);
-        const int jeast = mod (j+1, ncols);
+        const int inorth = INORTH(i, nrows);
+        const int isouth = ISOUTH(i, nrows);
+        const int jwest = JWEST(j, ncols);
+        const int jeast = JEAST(j, ncols);
         INCREMENT_NEIGHBOURS (outboard, inorth, jwest);
         INCREMENT_NEIGHBOURS (outboard, inorth, j);
         INCREMENT_NEIGHBOURS (outboard, inorth, jeast);
@@ -230,10 +230,10 @@ void gol_worker_for_row (int i, int ncols, int nrows, char * inboard, char * out
         SET_DEAD(BOARD(outboard,i,j));
 
         // Notify neighbours of death
-        const int inorth = mod (i-1, nrows);
-        const int isouth = mod (i+1, nrows);
-        const int jwest = mod (j-1, ncols);
-        const int jeast = mod (j+1, ncols);
+        const int inorth = INORTH(i, nrows);
+        const int isouth = ISOUTH(i, nrows);
+        const int jwest = JWEST(j, ncols);
+        const int jeast = JEAST(j, ncols);
         DECREMENT_NEIGHBOURS (outboard, inorth, jwest);
         DECREMENT_NEIGHBOURS (outboard, inorth, j);
         DECREMENT_NEIGHBOURS (outboard, inorth, jeast);
