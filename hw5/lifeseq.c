@@ -20,16 +20,25 @@
 #define BOARD( __board, __i, __j )  (__board[(__i) + LDA*(__j)])
 
 typedef struct {
-        int start;
-        int end;
+    char * inboard;
+    char * outboard;
+    int start;
+    int end;
+    int LDA;
+    int nrows;
+    int ncols;
 } thread_args;
 
 void* parallel_game_of_life (void *args) {
+    int i, j;
+
     thread_args tinfo = *((thread_args *) args);
     free(args);
 
     int start = tinfo.start;
     int end = tinfo.end;
+    int nrows = tinfo.nrows;
+    int ncols = tinfo.ncols;
 
     /* HINT: you'll be parallelizing these loop(s) by doing a
        geometric decomposition of the output */
