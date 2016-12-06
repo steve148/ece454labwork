@@ -60,13 +60,13 @@ void* parallel_game_of_life (void *args) {
     
 		    const char neighbor_count = 
 		        BOARD (inboard, inorth, jwest) + 
-    		    BOARD (inboard, inorth, j) + 
-	    	    BOARD (inboard, inorth, jeast) + 
+        		BOARD (inboard, inorth, j) + 
+	    	        BOARD (inboard, inorth, jeast) + 
 		        BOARD (inboard, i, jwest) +
 		        BOARD (inboard, i, jeast) + 
 		        BOARD (inboard, isouth, jwest) +
-    		    BOARD (inboard, isouth, j) + 
-	    	    BOARD (inboard, isouth, jeast);
+    		        BOARD (inboard, isouth, j) + 
+	    	        BOARD (inboard, isouth, jeast);
     
 		    BOARD(outboard, i, j) = alivep (neighbor_count, BOARD (inboard, i, j));
         }
