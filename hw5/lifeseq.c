@@ -89,17 +89,17 @@ void* parallel_game_of_life (void *args) {
         {
             const int inorth = i ? i - 1 : nrows - 1;//mod (i-1, nrows);
             const int isouth = (i != nrows - 1) ? i + 1 : 0;//mod (i+1, nrows);
-//    
-//		    const char neighbor_count = 
-//		        BOARD (inboard, inorth, jwest) + 
-//    		    BOARD (inboard, inorth, j) + 
-//	    	    BOARD (inboard, inorth, jeast) + 
-//		        BOARD (inboard, i, jwest) +
-//		        BOARD (inboard, i, jeast) + 
-//		        BOARD (inboard, isouth, jwest) +
-//    		    BOARD (inboard, isouth, j) + 
-//	    	    BOARD (inboard, isouth, jeast);
-//    
+    
+		    const char neighbor_count = 
+		        BOARD (inboard, inorth, jwest) + 
+        		BOARD (inboard, inorth, j) + 
+	    	        BOARD (inboard, inorth, jeast) + 
+		        BOARD (inboard, i, jwest) +
+		        BOARD (inboard, i, jeast) + 
+		        BOARD (inboard, isouth, jwest) +
+    		        BOARD (inboard, isouth, j) + 
+	    	        BOARD (inboard, isouth, jeast);
+    
 		    BOARD(outboard, i, j) = alivep (neighbor_count, BOARD (inboard, i, j));
         }
     }

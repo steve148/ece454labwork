@@ -1,0 +1,78 @@
+/*****************************************************************************
+ * life.c
+ * Parallelized and optimized implementation of the game of life resides here
+ ****************************************************************************/
+#include "life.h"
+#include "util.h"
+
+/*****************************************************************************
+ * Helper function definitions
+ ****************************************************************************/
+
+/*****************************************************************************
+ * Game of life implementation
+ ****************************************************************************/
+char*
+game_of_life (char* outboard, 
+	      char* inboard,
+	      const int nrows,
+	      const int ncols,
+	      const int gens_max)
+{
+  return game_of_life_v1(outboard, inboard, nrows, ncols, gens_max);
+}
+
+char*
+threaded_game_of_life(char *outboard,
+		      char *inboard,
+		      const int nrows,
+		      const int ncols,
+		      const int gens_max)
+{
+	//Do setup for threads
+
+	//Setup data for threads
+
+	for(curgen = 0; curgen < gens_max; curgen++) {
+
+	}
+
+	return inboard;
+
+}
+
+char* game_of_life_v1(char* outboard,
+			    char* inboard,
+			    const int nrows,
+			    const int ncols,
+			    const int gens_max)
+{
+	int curgen, i, j;
+	for (curgen = 0; curgen < gens_max; curgen++) {
+		for (i = 0; i < nrows; i++) {
+			for (j = 0; j < ncols; j++) {
+				const int inorth = mod (i - 1, nrows);
+				const int isouth = mod (i + 1, nrows);
+				const int jwest = mod (j - 1, ncols);
+				const int jeast = mod (j + 1, ncols);
+
+				const char neighbor_count =
+					BOARD(inboard, inorth, jwest) +
+					BOARD(inboard, inorth, j) +
+					BOARD(inboard, inorth, jeast) +
+					BOARD(inboard, i, jwest) +
+					BOARD(inboard, i, jeast) +
+					BOARD(inboard, isouth, jwest) +
+					BOARD(inboard, isouth, j) +
+					BOARD(inboard, isouth, jeast);
+
+				BOARD(outboard, i, j) = alivep(
+					neighbor_count,
+					BOARD(inboard, i, j)
+				);
+			}
+		}
+		SWAP_BOARDS(outboard, inboard);
+	}
+	return inboard;
+}

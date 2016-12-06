@@ -1,8 +1,21 @@
 #ifndef _util_h
 #define _util_h
 
-#define INCREMENT_AT_COORD(_b, _i, _j) (_b[_i + nrows * _j]++)
-#define DECREMENT_AT_COORD(_b, _i, _j) (_b[_i + nrows * _j]--)
+#define SWAP_BOARDS(b1, b2) do { \
+	char* temp = b1; \
+	b1 = b2; \
+	b2 = temp; \
+} while(0)
+
+#define BOARD(__board, __i, __j) (__board[(__i) + nrows * (__j)])
+
+#define IS_ALIVE(x) (x & (1 << 4))
+
+#define SET_ALIVE(x) (x |= ( 1 << 4))
+#define SET_DEAD(x) (x &= ~(1 << 4))
+
+#define INCREMENT_NEIGHBORS(_board, _i, _j) (_board[() + nrows * ()]++ )
+#define DECREMENT_NEIGHBORS(_board, _i, _j) (_board[() + nrows * ()]-- )
 
 /**
  * C's mod ('%') operator is mathematically correct, but it may return
