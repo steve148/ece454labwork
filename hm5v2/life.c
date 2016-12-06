@@ -141,45 +141,49 @@ void * game_of_life_thread (void *ptr) {
   int i, j;
 
   for (j = 0; j < ncols; j++) {
-    for (i = start; i < end; i++) {
-      char cell = BOARD(inboard,i,j);
+    const int j_nrows = j * nrows;
+
+    for (i = start_row; i < end_row; i++) {
+      char cell = MY_BOARD(inboard,i,j_nrows);
       // Check if the cell can come to life
       if (!IS_ALIVE(cell)) {
         if (cell == (char) 0x3) {
-          SET_ALIVE(BOARD(outboard,i,j));
+          SET_ALIVE(MY_BOARD(outboard,i,j_nrows));
 
-          // Notify neighbours of spawn
-          const int inorth = INORTH(i, nrows);
-          const int isouth = ISOUTH(i, nrows);
-          const int jwest = JWEST(j, ncols);
-          const int jeast = JEAST(j, ncols);
-          INCREMENT_NEIGHBOURS (outboard, inorth, jwest);
-          INCREMENT_NEIGHBOURS (outboard, inorth, j);
-          INCREMENT_NEIGHBOURS (outboard, inorth, jeast);
-          INCREMENT_NEIGHBOURS (outboard, i, jwest);
-          INCREMENT_NEIGHBOURS (outboard, i, jeast);
-          INCREMENT_NEIGHBOURS (outboard, isouth, jwest);
-          INCREMENT_NEIGHBOURS (outboard, isouth, j);
-          INCREMENT_NEIGHBOURS (outboard, isouth, jeast);
+          const int inorth = i ? i - 1 : nrows - 1;
+          const int isouth = (i != nrows - 1) ? i + 1 : 0;
+          const int jwest = j ? j_nrows - nrows : (ncols - 1) * nrows;
+          const int jeast = (j != ncols - 1) ? j_nrows + nrows : 0;
+
+          // // Notify neighbours of spawn
+          MY_INCREMENT_NEIGHBOURS (outboard, inorth, jwest);
+          MY_INCREMENT_NEIGHBOURS (outboard, inorth, j_nrows);
+          MY_INCREMENT_NEIGHBOURS (outboard, inorth, jeast);
+          MY_INCREMENT_NEIGHBOURS (outboard, i, jwest);
+          MY_INCREMENT_NEIGHBOURS (outboard, i, jeast);
+          MY_INCREMENT_NEIGHBOURS (outboard, isouth, jwest);
+          MY_INCREMENT_NEIGHBOURS (outboard, isouth, j_nrows);
+          MY_INCREMENT_NEIGHBOURS (outboard, isouth, jeast);
         }
       } else {
         // Check if the cell needs to die
         if (cell <= (char) 0x11 || cell >= (char) 0x14) {
-          SET_DEAD(BOARD(outboard,i,j));
+          SET_DEAD(MY_BOARD(outboard,i,j_nrows));
 
           // Notify neighbours of death
-          const int inorth = INORTH(i, nrows);
-          const int isouth = ISOUTH(i, nrows);
-          const int jwest = JWEST(j, ncols);
-          const int jeast = JEAST(j, ncols);
-          DECREMENT_NEIGHBOURS (outboard, inorth, jwest);
-          DECREMENT_NEIGHBOURS (outboard, inorth, j);
-          DECREMENT_NEIGHBOURS (outboard, inorth, jeast);
-          DECREMENT_NEIGHBOURS (outboard, i, jwest);
-          DECREMENT_NEIGHBOURS (outboard, i, jeast);
-          DECREMENT_NEIGHBOURS (outboard, isouth, jwest);
-          DECREMENT_NEIGHBOURS (outboard, isouth, j);
-          DECREMENT_NEIGHBOURS (outboard, isouth, jeast);
+          const int inorth = mod (i-1, nrows);
+          const int isouth = mod (i+1, nrows);
+          const int jwest = j ? j_nrows - nrows : (ncols - 1) * nrows;
+          const int jeast = (j != ncols - 1) ? j_nrows + nrows : 0;
+
+          MY_DECREMENT_NEIGHBOURS (outboard, inorth, jwest);
+          MY_DECREMENT_NEIGHBOURS (outboard, inorth, j_nrows);
+          MY_DECREMENT_NEIGHBOURS (outboard, inorth, jeast);
+          MY_DECREMENT_NEIGHBOURS (outboard, i, jwest);
+          MY_DECREMENT_NEIGHBOURS (outboard, i, jeast);
+          MY_DECREMENT_NEIGHBOURS (outboard, isouth, jwest);
+          MY_DECREMENT_NEIGHBOURS (outboard, isouth, j_nrows);
+          MY_DECREMENT_NEIGHBOURS (outboard, isouth, jeast);
         }
       }
     }
@@ -192,6 +196,7 @@ void * game_of_life_thread (void *ptr) {
 void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char * outboard) {
   int j;
   for (j = 0; j < ncols; j++) {
+    const int j_nrows = j * nrows;
     char cell = BOARD(inboard,i,j);
     // Check if the cell can come to life
     if (!IS_ALIVE(cell)) {
@@ -199,6 +204,7 @@ void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char 
         SET_ALIVE(BOARD(outboard,i,j));
 
         // Notify neighbours of spawn
+<<<<<<< HEAD
         const int inorth = INORTH(i, nrows);
         const int isouth = ISOUTH(i, nrows);
         const int jwest = JWEST(j, ncols);
@@ -211,6 +217,21 @@ void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char 
         INCREMENT_NEIGHBOURS (outboard, isouth, jwest);
         INCREMENT_NEIGHBOURS (outboard, isouth, j);
         INCREMENT_NEIGHBOURS (outboard, isouth, jeast);
+=======
+        const int inorth = mod (i-1, nrows);
+        const int isouth = mod (i+1, nrows);
+        const int jwest = j ? j_nrows - nrows : (ncols - 1) * nrows;
+        const int jeast = (j != ncols - 1) ? j_nrows + nrows : 0;
+
+        MY_INCREMENT_NEIGHBOURS (outboard, inorth, jwest);
+        MY_INCREMENT_NEIGHBOURS (outboard, inorth, j_nrows);
+        MY_INCREMENT_NEIGHBOURS (outboard, inorth, jeast);
+        MY_INCREMENT_NEIGHBOURS (outboard, i, jwest);
+        MY_INCREMENT_NEIGHBOURS (outboard, i, jeast);
+        MY_INCREMENT_NEIGHBOURS (outboard, isouth, jwest);
+        MY_INCREMENT_NEIGHBOURS (outboard, isouth, j_nrows);
+        MY_INCREMENT_NEIGHBOURS (outboard, isouth, jeast);
+>>>>>>> 89b2695e1b84204d4bc3b7e3f1818fa31daebe99
       }
     } else {
       // Check if the cell needs to die
@@ -218,6 +239,7 @@ void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char 
         SET_DEAD(BOARD(outboard,i,j));
 
         // Notify neighbours of death
+<<<<<<< HEAD
         const int inorth = INORTH(i, nrows);
         const int isouth = ISOUTH(i, nrows);
         const int jwest = JWEST(j, ncols);
@@ -230,6 +252,21 @@ void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char 
         DECREMENT_NEIGHBOURS (outboard, isouth, jwest);
         DECREMENT_NEIGHBOURS (outboard, isouth, j);
         DECREMENT_NEIGHBOURS (outboard, isouth, jeast);
+=======
+        const int inorth = mod (i-1, nrows);
+        const int isouth = mod (i+1, nrows);
+        const int jwest = j ? j_nrows - nrows : (ncols - 1) * nrows;
+        const int jeast = (j != ncols - 1) ? j_nrows + nrows : 0;
+
+        MY_DECREMENT_NEIGHBOURS (outboard, inorth, jwest);
+        MY_DECREMENT_NEIGHBOURS (outboard, inorth, j_nrows);
+        MY_DECREMENT_NEIGHBOURS (outboard, inorth, jeast);
+        MY_DECREMENT_NEIGHBOURS (outboard, i, jwest);
+        MY_DECREMENT_NEIGHBOURS (outboard, i, jeast);
+        MY_DECREMENT_NEIGHBOURS (outboard, isouth, jwest);
+        MY_DECREMENT_NEIGHBOURS (outboard, isouth, j_nrows);
+        MY_DECREMENT_NEIGHBOURS (outboard, isouth, jeast);
+>>>>>>> 89b2695e1b84204d4bc3b7e3f1818fa31daebe99
       }
     }
   }
