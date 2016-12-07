@@ -5,8 +5,8 @@
 #include <string.h>
 #include <pthread.h>
 
-#define NUM_THREADS         8	// # of threads to use in parallelization
-#define LOG2_NUM_THREADS    3	// log2(NUM_THREADS), used to determine chunk_size
+#define NUM_THREADS         8 // # of threads to use in parallelization
+#define LOG2_NUM_THREADS    3 // log2(NUM_THREADS), used to determine chunk_size
 
 /**
  * Swapping the two boards only involves swapping pointers, not
@@ -31,17 +31,17 @@ typedef struct {
  * Used to modify the starting board before going through the game of life iterations.
  */
 void
-init_bitmap (char * board, const int nrows, const int ncols){
-  int i,j;
+init_bitmap (char * board, const int nrows, const int ncols) {
+  int i, j;
   for (i = 0; i < nrows * ncols; i++) {
-    if (board[i] == 0x01)		// If element on board is alive (1)
-      board[i] = board[i] << 4;		// Shift bits 4 to the left
+    if (board[i] == 0x01)   // If element on board is alive (1)
+      board[i] = board[i] << 4;   // Shift bits 4 to the left
   }
 
-  for (j = 0; j < ncols; j++) { 	// For all elements in board
+  for (j = 0; j < ncols; j++) {   // For all elements in board
 
     /* Optimization: save a few multiplication operations
-	 * by strength reduction.
+    * by strength reduction.
      */
     const int j_nrows = j * nrows;
     for (i = 0; i < nrows; i++) {
@@ -66,11 +66,11 @@ init_bitmap (char * board, const int nrows, const int ncols){
 }
 
 void terminate_bitmap(char* board, const int nrows, const int ncols) {
-	int i;
-	for (i = 0; i < nrows * ncols; i++)
-		board[i] = board[i] >> 4;
+  int i;
+  for (i = 0; i < nrows * ncols; i++)
+    board[i] = board[i] >> 4;
 
-	return;
+  return;
 }
 
 /*
@@ -97,10 +97,10 @@ void * game_of_life_thread (void *ptr) {
     const int j_nrows = j * nrows;
 
     for (i = start; i < end; i++) {
-      char cell = BOARD(inboard,i,j);
-      if (!IS_ALIVE(cell)) {		// If cell is dead
-        if (cell == (char) 0x3) {	// If cell is about to become alive
-          SET_ALIVE(BOARD(outboard,i,j));
+      char cell = BOARD(inboard, i, j);
+      if (!IS_ALIVE(cell)) {    // If cell is dead
+        if (cell == (char) 0x3) { // If cell is about to become alive
+          SET_ALIVE(BOARD(outboard, i, j));
 
           const int inorth = INORTH(i, nrows);
           const int isouth = ISOUTH(i, nrows);
@@ -117,9 +117,9 @@ void * game_of_life_thread (void *ptr) {
           MY_INCREMENT_NEIGHBOURS (outboard, isouth, j_nrows);
           MY_INCREMENT_NEIGHBOURS (outboard, isouth, jeast);
         }
-      } else {							// If cell is alive
-        if (cell <= (char) 0x11 || cell >= (char) 0x14) {	// Cell will die from over or under population
-          SET_DEAD(MY_BOARD(outboard,i,j_nrows));
+      } else {              // If cell is alive
+        if (cell <= (char) 0x11 || cell >= (char) 0x14) { // Cell will die from over or under population
+          SET_DEAD(MY_BOARD(outboard, i, j_nrows));
 
           // Notify neighbours of death
           const int inorth = INORTH(i, nrows);
@@ -149,13 +149,13 @@ void * game_of_life_thread (void *ptr) {
  */
 void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char * outboard) {
   int j;
-  for (j = 0; j < ncols; j++) {	// For elements in row
+  for (j = 0; j < ncols; j++) { // For elements in row
     const int j_nrows = j * nrows;
-    char cell = BOARD(inboard,i,j);
+    char cell = BOARD(inboard, i, j);
     // Check if the cell can come to life
     if (!IS_ALIVE(cell)) {
       if (cell == (char) 0x3) {
-        SET_ALIVE(BOARD(outboard,i,j));
+        SET_ALIVE(BOARD(outboard, i, j));
 
         // Notify neighbours of spawn
         const int inorth = INORTH(i, nrows);
@@ -175,7 +175,7 @@ void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char 
     } else {
       // Check if the cell needs to die
       if (cell <= (char) 0x11 || cell >= (char) 0x14) {
-        SET_DEAD(BOARD(outboard,i,j));
+        SET_DEAD(BOARD(outboard, i, j));
 
         // Notify neighbours of death
         const int inorth = INORTH(i, nrows);
@@ -200,11 +200,11 @@ void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char 
  * threaded_game_of_life
  * Threaded version of the game of life
  */
-char* threaded_game_of_life (char* outboard, 
-    				char* inboard,
-				const int nrows,
-				const int ncols,
-				const int gens_max)
+char* threaded_game_of_life (char* outboard,
+                             char* inboard,
+                             const int nrows,
+                             const int ncols,
+                             const int gens_max)
 {
   int curgen, i, j;
 
@@ -219,17 +219,17 @@ char* threaded_game_of_life (char* outboard,
   int start_row = 0;
   int chunk_size = nrows >> LOG2_NUM_THREADS;
   int end_row = chunk_size;
-  for (i=0; i<num_threads; i++){
+  for (i = 0; i < num_threads; i++) {
     // Set start and end thread args
-    tinfo[i].start = start_row+1;
-    tinfo[i].end = end_row-1;
+    tinfo[i].start = start_row + 1;
+    tinfo[i].end = end_row - 1;
 
     // Update for next start and end rows
     start_row = end_row;
     end_row = end_row + chunk_size;
   }
 
-  // Iterate through generations 
+  // Iterate through generations
   for (curgen = 0; curgen < gens_max; curgen++) {
     // Set outboard to be inboard just in case
     memcpy (outboard, inboard, nrows * ncols * sizeof (char));
@@ -252,7 +252,7 @@ char* threaded_game_of_life (char* outboard,
 
     // Wait for threads to finish
     for (i = 0; i < num_threads; i++) {
-      pthread_join(tid[i],NULL);
+      pthread_join(tid[i], NULL);
     }
 
     // Swap the boards to update the inboard
@@ -260,7 +260,7 @@ char* threaded_game_of_life (char* outboard,
   }
 
   // Format output so that it only shows dead or alive
-  terminate_bitmap(inboard,nrows,ncols);
+  terminate_bitmap(inboard, nrows, ncols);
 
   free(tinfo);
   return inboard;
