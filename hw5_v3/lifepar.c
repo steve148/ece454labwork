@@ -38,13 +38,13 @@ init_bitmap (char * board, const int nrows, const int ncols){
       board[i] = board[i] << 4;		// Shift bits 4 to the left
   }
 
-  for (i = 0; i < nrows; i++) {
-    for (j = 0; j < ncols; j++) { 	// For all elements in board
+  for (j = 0; j < ncols; j++) { 	// For all elements in board
 
-      /* Optimization: save a few multiplication operations
-	 by strength reduction.
-      */
-      const int j_nrows = j * nrows;
+    /* Optimization: save a few multiplication operations
+	 * by strength reduction.
+     */
+    const int j_nrows = j * nrows;
+    for (i = 0; i < nrows; i++) {
 
       // If the cell is alive, notify all the other neighbours
       if (IS_ALIVE(BOARD(board, i, j))) {
@@ -222,7 +222,7 @@ threaded_game_of_life (char* outboard,
   // Iterate through generations 
   for (curgen = 0; curgen < gens_max; curgen++) {
     // Set outboard to be inboard just in case
-    memmove (outboard, inboard, nrows * ncols * sizeof (char));
+    memcpy (outboard, inboard, nrows * ncols * sizeof (char));
 
     // Before starting thread jobs, do first and last line of each chunk so
     // so the threads do not overlap while writing to outboard.

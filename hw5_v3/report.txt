@@ -1,0 +1,54 @@
+/*************************************************************************
+ * ECE454H1 - Computer Systems Programming
+ * Homework 5: Parallelization
+ * 
+ * Authors:
+ * Rahul Chandan       999781801
+ * Lennox Stevenson    999585667
+ * 
+ * Date: Wednesday, December 7th, 2016
+ ************************************************************************/
+
+1/ Parallelization
+
+The primary optimization done on the code was the parallelization of the
+sequential Game of Life implementation. The internal for-loop containing
+the cell survival logic for every iteration was divided such that an 
+equal number of the board's rows was evaluated by each thread. It was 
+found empirically that 8 threads was the best performing number of threads
+for this application. On every iteration, the threads fork off in order to
+calculate an eighth of the outboard cells, and are joined at the end of
+each iteration. To avoid race conditions at division boundaries, these
+boundaries are calculated before the threads are forked. Therefore, in
+reality the threads calculate 2 rows fewer than they are responsible for.
+
+2/ Other optimizations
+
+- Keeping track of the number of alive neighbours for each cell. This
+  enable us to write logic so that we only execute certain 
+  for cells that are alive and will be dead, or vice-versa.
+
+  Implementation requires initialization of a bitmap table within the
+  inboard, memcpy of the board contents from inboard to outboard on every
+  iteration, and increment or decrement of neighbour count when a cell
+  comes alive or dies, respectively.
+
+- Simplification of the mod() function in order to reduce computation.
+  The new expression uses a separate inline condition for north/south, or
+  east/west (i.e. next or previous).
+
+- Precomputed multiplications for calculations of the 'y' component on the
+  game board. As we are incrementing 'j' in the outer loop, we can
+  precompute 'j*nrows', and therefore save on repetitive calculations in 
+  the inner loop. A similar multiplication expansion is performed for 
+  evaluation of 'jwest' and 'jeast'.
+
+3/ Additional source files
+
+A single file was added to the source code and is called 'lifepar.c'. Just 
+as 'lifeseq.c' contains the code to implement a sequential Game of Life 
+program, the file 'lifepar.c' contains the code to implement a 
+parallelized Game of Life program using pthreads.
+
+
+
