@@ -13,9 +13,9 @@
 
 The primary optimization done on the code was the parallelization of the
 sequential Game of Life implementation. The internal for-loop containing
-the cell survival logic for every iteration was divided such that an 
-equal number of the board's rows was evaluated by each thread. It was 
-found empirically that 8 threads was the best performing number of threads
+the cell survival logic for every iteration was divided such that each 
+thread evaluatd an equal number of the board's rows. It was found
+empirically that 8 threads was the best performing number of threads
 for this application. On every iteration, the threads fork off in order to
 calculate an eighth of the outboard cells, and are joined at the end of
 each iteration. To avoid race conditions at division boundaries, these
