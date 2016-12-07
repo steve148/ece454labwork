@@ -35,5 +35,7 @@ char * threaded_game_of_life(char* outboard,
 void * game_of_life_thread (void *ptr);
 void  game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char * outboard);
 
+void init_bitmap(char* board, const int nrows, const int ncols);
+void terminate_bitmap(char* board, const int nrows, const int ncols);
 
 #endif /* _life_h */

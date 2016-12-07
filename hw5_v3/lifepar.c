@@ -65,6 +65,14 @@ init_bitmap (char * board, const int nrows, const int ncols){
   }
 }
 
+void terminate_bitmap(char* board, const int nrows, const int ncols) {
+	int i;
+	for (i = 0; i < nrows * ncols; i++)
+		board[i] = board[i] >> 4;
+
+	return;
+}
+
 /*
  * game_of_life_thread
  * Function called by pthread_create.
@@ -131,14 +139,17 @@ void * game_of_life_thread (void *ptr) {
       }
     }
   }
-
   pthread_exit(NULL);
 }
 
-
+/*
+ * game_of_life_single_row
+ * Applies the game of life rules to a single row;
+ * Used in threaded_game_of_life to avoid synchronization issues of reading/writing cells on boards
+ */
 void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char * outboard) {
   int j;
-  for (j = 0; j < ncols; j++) {
+  for (j = 0; j < ncols; j++) {	// For elements in row
     const int j_nrows = j * nrows;
     char cell = BOARD(inboard,i,j);
     // Check if the cell can come to life
@@ -185,16 +196,15 @@ void game_of_life_single_row (int i, int ncols, int nrows, char * inboard, char 
   }
 }
 
-/*****************************************************************************
- * threaded_gol
+/*
+ * threaded_game_of_life
  * Threaded version of the game of life
- ****************************************************************************/
-  char*
-threaded_game_of_life (char* outboard, 
-    char* inboard,
-    const int nrows,
-    const int ncols,
-    const int gens_max)
+ */
+char* threaded_game_of_life (char* outboard, 
+    				char* inboard,
+				const int nrows,
+				const int ncols,
+				const int gens_max)
 {
   int curgen, i, j;
 
@@ -250,11 +260,7 @@ threaded_game_of_life (char* outboard,
   }
 
   // Format output so that it only shows dead or alive
-  for (i = 0; i < nrows; i++) {
-    for (j = 0; j < ncols; j++) {
-      BOARD(inboard,i,j) = BOARD(inboard,i,j) >> 4;
-    }
-  }
+  terminate_bitmap(inboard,nrows,ncols);
 
   free(tinfo);
   return inboard;
