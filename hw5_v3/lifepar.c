@@ -27,6 +27,8 @@ typedef struct {
   int end;
 } thread_args;
 
+pthread_mutex_t lock;
+
 void
 init_bitmap (char * board, const int nrows, const int ncols){
   int i,j;
